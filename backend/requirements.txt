@@ -1,0 +1,5 @@
+Flask
+flask-cors
+numpy
+google-cloud-aiplatform
+google-cloud-firestore
