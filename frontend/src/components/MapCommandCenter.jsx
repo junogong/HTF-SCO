@@ -263,6 +263,41 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
                         );
                     })}
 
+                    {/* Sub-Supplier nodes (Tier 2/3) */}
+                    {showSubSuppliers && Object.entries(SUB_SUPPLIER_COORDS).map(([id, coord]) => {
+                        const isDisruptedRegion = analysisResult?.classification?.region &&
+                            (coord.country.toLowerCase().includes(analysisResult.classification.region.toLowerCase()) ||
+                                analysisResult.classification.region.toLowerCase().includes(coord.country.toLowerCase()));
+                        const color = getSubSupplierColor(id, isDisruptedRegion ? new Set([id]) : null);
+                        return (
+                            <Marker
+                                key={id}
+                                coordinates={[coord.lon, coord.lat]}
+                            >
+                                {isDisruptedRegion && (
+                                    <circle r={8} fill="none" stroke="#f97316" strokeWidth={1} opacity={0.6}>
+                                        <animate attributeName="r" from="4" to="12" dur="1s" repeatCount="indefinite" />
+                                        <animate attributeName="opacity" from="0.8" to="0" dur="1s" repeatCount="indefinite" />
+                                    </circle>
+                                )}
+                                <circle r={3.5} fill={color} stroke="#0f172a" strokeWidth={1} opacity={0.9} />
+                                <text
+                                    textAnchor="middle"
+                                    y={-7}
+                                    style={{
+                                        fontSize: '6px',
+                                        fill: '#64748b',
+                                        fontFamily: "'Inter', monospace",
+                                        fontWeight: 500,
+                                    }}
+                                >
+                                    {coord.name.split(' ')[0]} (T{coord.tier})
+                                </text>
+                            </Marker>
+                        );
+                    })}
+
+
                     {/* HQ Node */}
                     <Marker coordinates={[HQ_COORD.lon, HQ_COORD.lat]}>
                         <circle r={7} fill="#3b82f6" stroke="#0f172a" strokeWidth={2} />
@@ -303,7 +338,7 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
                     style={{ background: 'rgba(10,15,26,0.95)', border: '1px solid #2a3550', minWidth: 220 }}>
                     <div className="flex items-center gap-2 mb-2">
                         <div className="w-3 h-3 rounded-full" style={{
-                            backgroundColor: getNodeColor(selectedMarker, affectedIds, healthScores)
+                            backgroundColor: getNodeColor(selectedMarker, affectedIds, indirectIds, healthScores)
                         }} />
                         <span className="text-xs font-bold text-slate-200 font-mono">
                             {SUPPLIER_COORDS[selectedMarker].name}
