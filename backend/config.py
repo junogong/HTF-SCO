@@ -1,21 +1,23 @@
 """Configuration constants for the Supply Chain Resilience Agent."""
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ── GCP Configuration ────────────────────────────────────────────────
-GCP_PROJECT_ID = "htf-sco"
-GCP_REGION = "us-east1"
-FIRESTORE_DATABASE = "htf-sco"  # Named Firestore database
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "htf-sco")
+GCP_REGION = os.getenv("GCP_REGION", "us-east1")
+FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "htf-sco")
 
 # ── Service Toggle ───────────────────────────────────────────────────
 # Set to True to use real GCP services, False for local simulators.
-# Option A (prototype): only Vertex AI + Firestore are real.
-# Option B (demo):      all three are real (requires Spanner instance).
-USE_REAL_VERTEX = True
-USE_REAL_FIRESTORE = True
-USE_REAL_SPANNER = False  # Flip to True for demo day (requires provisioned Spanner instance)
+USE_REAL_VERTEX = os.getenv("USE_REAL_VERTEX", "true").lower() == "true"
+USE_REAL_FIRESTORE = os.getenv("USE_REAL_FIRESTORE", "true").lower() == "true"
+USE_REAL_SPANNER = os.getenv("USE_REAL_SPANNER", "false").lower() == "true"
 
 # ── AI Model Configuration ───────────────────────────────────────────
-GEMINI_MODEL = "gemini-2.0-flash"
-EMBEDDING_MODEL = "text-embedding-004"
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-004")
 EMBEDDING_DIM = 768 if USE_REAL_VERTEX else 256
 
 # ── Business Logic ───────────────────────────────────────────────────

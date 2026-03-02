@@ -15,6 +15,7 @@ from routes.actions import actions_bp
 from routes.settings import settings_bp
 from routes.simulate import simulate_bp
 from routes.safety import safety_bp
+from routes.cron import cron_bp
 from data.seed import seed_all
 
 
@@ -32,6 +33,7 @@ def create_app():
     app.register_blueprint(settings_bp)
     app.register_blueprint(simulate_bp, url_prefix="/api")
     app.register_blueprint(safety_bp, url_prefix="/api")
+    app.register_blueprint(cron_bp, url_prefix="/api/cron")
 
     # Health check
     @app.route("/api/health", methods=["GET"])
