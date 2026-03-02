@@ -182,6 +182,7 @@ export default function StressTest({ onAcceptScenario }) {
                                                 onClick={() => {
                                                     // Build a disruption-shaped result from the scenario
                                                     const disruptionResult = {
+                                                        source: 'wind-tunnel',
                                                         strategy_id: `wind-tunnel-${Date.now()}-${i}`,
                                                         classification: {
                                                             category: s.category || 'stress-test',
@@ -193,6 +194,18 @@ export default function StressTest({ onAcceptScenario }) {
                                                             summary: s.description,
                                                             revenue_at_risk: s.revenue_at_risk || 0,
                                                             confidence_score: 75,
+                                                        },
+                                                        wind_tunnel_reasoning: {
+                                                            scenario_name: s.name,
+                                                            description: s.description,
+                                                            category: s.category,
+                                                            probability: s.probability,
+                                                            signal: s.signal,
+                                                            affected_region: s.affected_region || 'Global',
+                                                            tier1_impact: (s.affected_tier1 || []).map(t => `${t.name} (${t.country})`),
+                                                            preemptive_actions: s.preemptive_actions || [],
+                                                            revenue_at_risk: s.revenue_at_risk || 0,
+                                                            products_at_risk: s.products_at_risk || 0,
                                                         },
                                                         affected_suppliers: (s.affected_tier1 || []).map(t => ({
                                                             id: `sup-${t.name?.toLowerCase().split(' ')[0]}`,
