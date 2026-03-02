@@ -19,6 +19,17 @@ const SUB_SUPPLIER_COORDS = {
     "sub-lynas": { lon: 103.8, lat: 3.1, name: "Lynas Rare Earths", country: "Malaysia", tier: 2 },
 };
 
+// Sub-supplier → who they supply (from seed.py relationships)
+const SUPPLY_CHAIN_LINKS = {
+    "sub-asml": ["sup-tsmc"],
+    "sub-glencore": ["sub-catl"],
+    "sub-catl": ["sup-byd"],
+    "sub-palmco": ["sup-flex"],
+    "sub-neon-ua": ["sup-tsmc", "sup-murata"],
+    "sub-sqm": ["sub-catl"],
+    "sub-lynas": ["sup-bosch"],
+};
+
 // Supplier coordinates (lon, lat)
 const SUPPLIER_COORDS = {
     "sup-tsmc": { lon: 120.96, lat: 24.80, name: "TSMC Semiconductor", country: "Taiwan" },
@@ -60,10 +71,15 @@ function getNodeColor(supplierId, affectedIds, indirectIds, healthScores) {
     return "#10b981";
 }
 
-function getSubSupplierColor(subId, activeScenarioRegions) {
-    // If this sub-supplier is in a disrupted region, glow orange
-    if (activeScenarioRegions && activeScenarioRegions.has(subId)) return "#f97316";
-    return "#6366f1"; // Default indigo for Tier-2/3
+function getSubSupplierColor(subId, disruptedRegion) {
+    if (!disruptedRegion) return "#6366f1"; // Default indigo
+    const coord = SUB_SUPPLIER_COORDS[subId];
+    if (!coord) return "#6366f1";
+    const country = coord.country.toLowerCase();
+    const region = disruptedRegion.toLowerCase();
+    // Match if disruption region name appears in country or vice versa
+    if (country.includes(region) || region.includes(country)) return "#f97316";
+    return "#6366f1";
 }
 
 function MapCommandCenter({ analysisResult, suppliers = [] }) {
@@ -72,6 +88,7 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
     const [zoom, setZoom] = useState(1);
     const [center, setCenter] = useState(MAP_CENTER);
     const [showSubSuppliers, setShowSubSuppliers] = useState(true);
+    const [selectedSubSupplier, setSelectedSubSupplier] = useState(null);
 
     const affectedIds = new Set(
         (analysisResult?.affected_suppliers || []).map(s => s.id)
@@ -238,7 +255,10 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
                             <Marker
                                 key={id}
                                 coordinates={[coord.lon, coord.lat]}
-                                onClick={() => setSelectedMarker(selectedMarker === id ? null : id)}
+                                onClick={() => {
+                                    setSelectedMarker(selectedMarker === id ? null : id);
+                                    setSelectedSubSupplier(null);
+                                }}
                             >
                                 {isAffected && (
                                     <circle r={10} fill="none" stroke="#ef4444" strokeWidth={1} opacity={0.4}>
@@ -263,32 +283,65 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
                         );
                     })}
 
+                    {/* Supply chain lines from selected sub-supplier */}
+                    {selectedSubSupplier && SUPPLY_CHAIN_LINKS[selectedSubSupplier] && (
+                        SUPPLY_CHAIN_LINKS[selectedSubSupplier].map(targetId => {
+                            const fromCoord = SUB_SUPPLIER_COORDS[selectedSubSupplier];
+                            const toCoord = SUPPLIER_COORDS[targetId] || SUB_SUPPLIER_COORDS[targetId];
+                            if (!fromCoord || !toCoord) return null;
+                            const [x1, y1] = project(fromCoord.lon, fromCoord.lat);
+                            const [x2, y2] = project(toCoord.lon, toCoord.lat);
+                            return (
+                                <line
+                                    key={`sub-link-${selectedSubSupplier}-${targetId}`}
+                                    x1={x1} y1={y1} x2={x2} y2={y2}
+                                    stroke="#a78bfa"
+                                    strokeWidth={1.5}
+                                    strokeDasharray="6 3"
+                                    strokeLinecap="round"
+                                    opacity={0.8}
+                                />
+                            );
+                        })
+                    )}
+
                     {/* Sub-Supplier nodes (Tier 2/3) */}
                     {showSubSuppliers && Object.entries(SUB_SUPPLIER_COORDS).map(([id, coord]) => {
-                        const isDisruptedRegion = analysisResult?.classification?.region &&
-                            (coord.country.toLowerCase().includes(analysisResult.classification.region.toLowerCase()) ||
-                                analysisResult.classification.region.toLowerCase().includes(coord.country.toLowerCase()));
-                        const color = getSubSupplierColor(id, isDisruptedRegion ? new Set([id]) : null);
+                        const disruptedRegion = analysisResult?.classification?.region || null;
+                        const color = getSubSupplierColor(id, disruptedRegion);
+                        const isDisruptedNode = color === '#f97316';
+                        const isSelected = selectedSubSupplier === id;
                         return (
                             <Marker
                                 key={id}
                                 coordinates={[coord.lon, coord.lat]}
+                                onClick={(e) => {
+                                    e.stopPropagation && e.stopPropagation();
+                                    setSelectedSubSupplier(isSelected ? null : id);
+                                    setSelectedMarker(null);
+                                }}
                             >
-                                {isDisruptedRegion && (
+                                {isDisruptedNode && (
                                     <circle r={8} fill="none" stroke="#f97316" strokeWidth={1} opacity={0.6}>
                                         <animate attributeName="r" from="4" to="12" dur="1s" repeatCount="indefinite" />
                                         <animate attributeName="opacity" from="0.8" to="0" dur="1s" repeatCount="indefinite" />
                                     </circle>
                                 )}
-                                <circle r={3.5} fill={color} stroke="#0f172a" strokeWidth={1} opacity={0.9} />
+                                {isSelected && (
+                                    <circle r={10} fill="none" stroke="#a78bfa" strokeWidth={1.5} opacity={0.7}>
+                                        <animate attributeName="r" from="6" to="14" dur="1.2s" repeatCount="indefinite" />
+                                        <animate attributeName="opacity" from="0.9" to="0" dur="1.2s" repeatCount="indefinite" />
+                                    </circle>
+                                )}
+                                <circle r={isSelected ? 5 : 3.5} fill={color} stroke={isSelected ? '#a78bfa' : '#0f172a'} strokeWidth={isSelected ? 2 : 1} opacity={0.9} style={{ cursor: 'pointer' }} />
                                 <text
                                     textAnchor="middle"
-                                    y={-7}
+                                    y={-9}
                                     style={{
-                                        fontSize: '6px',
-                                        fill: '#64748b',
+                                        fontSize: isSelected ? '7px' : '6px',
+                                        fill: isSelected ? '#c4b5fd' : '#64748b',
                                         fontFamily: "'Inter', monospace",
-                                        fontWeight: 500,
+                                        fontWeight: isSelected ? 700 : 500,
                                     }}
                                 >
                                     {coord.name.split(' ')[0]} (T{coord.tier})

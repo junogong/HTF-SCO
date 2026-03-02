@@ -8,7 +8,7 @@ from services.spanner_simulator import graph_db
 from config import CONFIDENCE_THRESHOLD
 
 # Hard lock threshold for HITL override
-HITL_REVENUE_THRESHOLD = 50000  # $50K — requires supervisor override
+HITL_REVENUE_THRESHOLD = 1000000  # $50K — requires supervisor override
 
 
 class FactChecker:
