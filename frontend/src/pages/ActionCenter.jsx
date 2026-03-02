@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Mail, Settings, Package, AlertTriangle, Check, X,
     ChevronDown, ChevronUp, MessageSquare
@@ -20,19 +20,30 @@ const ACTION_COLORS = {
     executive_escalation: '#ef4444',
 };
 
-export default function ActionCenter({ analysisResult }) {
-    const [actions, setActions] = useState(analysisResult?.actions || []);
-    const [approvedIds, setApprovedIds] = useState(new Set());
+export default function ActionCenter({ analysisResult, dismissedActionIds = new Set(), onDismissAction }) {
     const [expandedEmail, setExpandedEmail] = useState(null);
     const [rating, setRating] = useState(0);
     const [feedback, setFeedback] = useState('');
     const [actualOutcome, setActualOutcome] = useState('');
     const [feedbackSent, setFeedbackSent] = useState(false);
 
+    // Derive visible actions — filter out permanently dismissed ones
+    const allActions = analysisResult?.actions || [];
+    const actions = allActions.filter(a => !dismissedActionIds.has(a.id));
+
+    // Reset UI state when the active disruption changes
+    useEffect(() => {
+        setExpandedEmail(null);
+        setFeedbackSent(false);
+        setRating(0);
+        setFeedback('');
+        setActualOutcome('');
+    }, [analysisResult]);
+
     const handleApprove = async (actionId) => {
         try {
             await api.post('/action/approve', { action_id: actionId, approved: true });
-            setApprovedIds(prev => new Set([...prev, actionId]));
+            onDismissAction?.(actionId);  // permanently remove
         } catch (err) {
             console.error(err);
         }
@@ -41,7 +52,7 @@ export default function ActionCenter({ analysisResult }) {
     const handleReject = async (actionId) => {
         try {
             await api.post('/action/approve', { action_id: actionId, approved: false });
-            setActions(prev => prev.filter(a => a.id !== actionId));
+            onDismissAction?.(actionId);  // permanently remove
         } catch (err) {
             console.error(err);
         }
@@ -89,19 +100,18 @@ export default function ActionCenter({ analysisResult }) {
                 {actions.map((action) => {
                     const Icon = ACTION_ICONS[action.type] || Settings;
                     const color = ACTION_COLORS[action.type] || '#3b82f6';
-                    const isApproved = approvedIds.has(action.id);
 
                     return (
                         <div
                             key={action.id}
                             className="glass-card transition-all"
                             style={{
-                                borderColor: lowConfidence && !isApproved ? 'rgba(245, 158, 11, 0.4)' : undefined,
-                                background: lowConfidence && !isApproved ? 'rgba(245, 158, 11, 0.04)' : undefined,
+                                borderColor: lowConfidence ? 'rgba(245, 158, 11, 0.4)' : undefined,
+                                background: lowConfidence ? 'rgba(245, 158, 11, 0.04)' : undefined,
                             }}
                         >
                             {/* Low confidence banner */}
-                            {lowConfidence && !isApproved && (
+                            {lowConfidence && (
                                 <div className="flex items-center gap-2 mb-3 px-3 py-1.5 rounded-lg text-xs font-semibold"
                                     style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
                                     <AlertTriangle size={12} />
@@ -158,20 +168,12 @@ export default function ActionCenter({ analysisResult }) {
 
                                 {/* Action buttons */}
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                    {isApproved ? (
-                                        <span className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400">
-                                            <Check size={14} /> Approved
-                                        </span>
-                                    ) : (
-                                        <>
-                                            <button onClick={() => handleApprove(action.id)} className="btn-primary py-2 px-3 text-xs">
-                                                <Check size={14} /> Approve
-                                            </button>
-                                            <button onClick={() => handleReject(action.id)} className="btn-outline py-2 px-3 text-xs" style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
-                                                <X size={14} />
-                                            </button>
-                                        </>
-                                    )}
+                                    <button onClick={() => handleApprove(action.id)} className="btn-primary py-2 px-3 text-xs">
+                                        <Check size={14} /> Approve
+                                    </button>
+                                    <button onClick={() => handleReject(action.id)} className="btn-outline py-2 px-3 text-xs" style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}>
+                                        <X size={14} />
+                                    </button>
                                 </div>
                             </div>
                         </div>

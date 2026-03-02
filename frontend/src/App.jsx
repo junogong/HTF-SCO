@@ -10,15 +10,37 @@ import StressTest from './pages/StressTest';
 
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
-  const [analysisResult, setAnalysisResult] = useState(null);
+  const [disruptionHistory, setDisruptionHistory] = useState([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  const activeResult = activeIndex >= 0 ? disruptionHistory[activeIndex] : null;
+  const [dismissedActionIds, setDismissedActionIds] = useState(new Set());
+
+  const handleAddDisruption = (result) => {
+    setDisruptionHistory(prev => [result, ...prev]);
+    setActiveIndex(0);
+  };
+
+  const handleDismissAction = (actionId) => {
+    setDismissedActionIds(prev => new Set([...prev, actionId]));
+  };
 
   const renderPage = () => {
     switch (activePage) {
       case 'dashboard': return <Dashboard />;
-      case 'graph': return <SupplyGraph analysisResult={analysisResult} />;
-      case 'disruption': return <Disruption onResult={setAnalysisResult} />;
-      case 'stress-test': return <StressTest />;
-      case 'actions': return <ActionCenter analysisResult={analysisResult} />;
+      case 'graph': return <SupplyGraph analysisResult={activeResult} />;
+      case 'disruption': return <Disruption
+        disruptionHistory={disruptionHistory}
+        activeIndex={activeIndex}
+        setActiveIndex={setActiveIndex}
+        onAddDisruption={handleAddDisruption}
+      />;
+      case 'stress-test': return <StressTest onAcceptScenario={handleAddDisruption} />;
+      case 'actions': return <ActionCenter
+        analysisResult={activeResult}
+        dismissedActionIds={dismissedActionIds}
+        onDismissAction={handleDismissAction}
+      />;
       case 'onboarding': return <Onboarding />;
       case 'safety': return <SafetyDashboard />;
       default: return <Dashboard />;

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import api from '../api/client';
-import { Wind, Play, AlertTriangle, TrendingUp, Package, ChevronDown, ChevronRight, Zap } from 'lucide-react';
+import { Wind, Play, AlertTriangle, TrendingUp, Package, ChevronDown, ChevronRight, Zap, CheckCircle } from 'lucide-react';
 
 const PROB_COLOR = { high: '#ef4444', medium: '#f97316', low: '#eab308' };
 const CAT_COLOR = { geopolitical: '#a855f7', weather: '#06b6d4', financial: '#22c55e', logistics: '#f97316', quality: '#eab308' };
 
-export default function StressTest() {
+export default function StressTest({ onAcceptScenario }) {
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(null);
+    const [acceptedScenarios, setAcceptedScenarios] = useState(new Set());
 
     const run = async () => {
         setLoading(true);
@@ -169,6 +170,64 @@ export default function StressTest() {
                                             )}
                                         </div>
                                     )}
+                                    {/* Accept scenario button */}
+                                    <div className="mt-3 pt-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
+                                        {acceptedScenarios.has(i) ? (
+                                            <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                                                <CheckCircle size={14} /> Accepted — Sent to Action Center
+                                            </span>
+                                        ) : (
+                                            <button
+                                                className="btn-primary text-xs py-2 px-4"
+                                                onClick={() => {
+                                                    // Build a disruption-shaped result from the scenario
+                                                    const disruptionResult = {
+                                                        strategy_id: `wind-tunnel-${Date.now()}-${i}`,
+                                                        classification: {
+                                                            category: s.category || 'stress-test',
+                                                            severity: s.probability === 'high' ? 'critical' : 'moderate',
+                                                            region: s.affected_region || 'Global',
+                                                        },
+                                                        strategy: {
+                                                            name: `[Wind Tunnel] ${s.name}`,
+                                                            summary: s.description,
+                                                            revenue_at_risk: s.revenue_at_risk || 0,
+                                                            confidence_score: 75,
+                                                        },
+                                                        affected_suppliers: (s.affected_tier1 || []).map(t => ({
+                                                            id: `sup-${t.name?.toLowerCase().split(' ')[0]}`,
+                                                            name: t.name,
+                                                            country: t.country,
+                                                            health_score: t.health_score || 70,
+                                                        })),
+                                                        blast_radius: {
+                                                            products_at_risk: s.products_at_risk || 0,
+                                                            tier1_suppliers: s.affected_tier1 || [],
+                                                        },
+                                                        actions: (s.preemptive_actions || []).map((a, j) => ({
+                                                            id: `wt-action-${Date.now()}-${j}`,
+                                                            type: 'preemptive_stock_build',
+                                                            title: a.title,
+                                                            description: a.description || a.title,
+                                                            priority: 'High',
+                                                            timeline: a.timeline,
+                                                        })),
+                                                        reasoning_trace: [
+                                                            { step: 'Wind Tunnel Simulation', detail: `Generated from stress test scenario: ${s.name}`, duration_ms: 0 },
+                                                        ],
+                                                        debate: null,
+                                                        guardrails: { trust_score: 75, validated: true, checks: [] },
+                                                        total_duration_ms: 0,
+                                                        past_lessons_used: 0,
+                                                    };
+                                                    onAcceptScenario?.(disruptionResult);
+                                                    setAcceptedScenarios(prev => new Set([...prev, i]));
+                                                }}
+                                            >
+                                                <Zap size={14} /> Accept & Send to Action Center
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
