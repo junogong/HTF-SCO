@@ -33,6 +33,6 @@
    
 3. Run the Python backend:
    ```bash
-   python generate_data.py
+   python app.py
    ```
    
