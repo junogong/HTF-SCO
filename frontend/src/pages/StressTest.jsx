@@ -5,11 +5,15 @@ import { Wind, Play, AlertTriangle, TrendingUp, Package, ChevronDown, ChevronRig
 const PROB_COLOR = { high: '#ef4444', medium: '#f97316', low: '#eab308' };
 const CAT_COLOR = { geopolitical: '#a855f7', weather: '#06b6d4', financial: '#22c55e', logistics: '#f97316', quality: '#eab308' };
 
-export default function StressTest({ onAcceptScenario }) {
-    const [result, setResult] = useState(null);
+export default function StressTest({
+    onAcceptScenario,
+    stressTestResult: result,
+    setStressTestResult: setResult,
+    acceptedScenarios,
+    setAcceptedScenarios
+}) {
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(null);
-    const [acceptedScenarios, setAcceptedScenarios] = useState(new Set());
 
     const run = async () => {
         setLoading(true);

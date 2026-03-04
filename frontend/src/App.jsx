@@ -16,6 +16,10 @@ export default function App() {
   const activeResult = activeIndex >= 0 ? disruptionHistory[activeIndex] : null;
   const [dismissedActionIds, setDismissedActionIds] = useState(new Set());
 
+  // Wind Tunnel persisted state
+  const [stressTestResult, setStressTestResult] = useState(null);
+  const [acceptedScenarios, setAcceptedScenarios] = useState(new Set());
+
   const handleAddDisruption = (result) => {
     setDisruptionHistory(prev => [result, ...prev]);
     setActiveIndex(0);
@@ -35,7 +39,13 @@ export default function App() {
         setActiveIndex={setActiveIndex}
         onAddDisruption={handleAddDisruption}
       />;
-      case 'stress-test': return <StressTest onAcceptScenario={handleAddDisruption} />;
+      case 'stress-test': return <StressTest
+        onAcceptScenario={handleAddDisruption}
+        stressTestResult={stressTestResult}
+        setStressTestResult={setStressTestResult}
+        acceptedScenarios={acceptedScenarios}
+        setAcceptedScenarios={setAcceptedScenarios}
+      />;
       case 'actions': return <ActionCenter
         analysisResult={activeResult}
         dismissedActionIds={dismissedActionIds}
