@@ -3,3 +3,5 @@ flask-cors
 numpy
 google-cloud-aiplatform
 google-cloud-firestore
+requests
+beautifulsoup4
