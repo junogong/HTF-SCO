@@ -14,31 +14,50 @@ export default function KpiCard({ title, value, subtitle, icon: Icon, trend, col
     };
 
     return (
-        <div className="glass-card flex flex-col gap-3 group">
-            <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+        <div className="glass-card flex flex-col gap-4 group relative overflow-hidden">
+            {/* Very subtle background glow based on color */}
+            <div
+                className="absolute -top-10 -right-10 w-24 h-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-40"
+                style={{ background: gradients[color] || gradients.blue }}
+            />
+
+            <div className="flex items-start justify-between relative z-10">
+                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
                     {title}
                 </span>
                 <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform"
-                    style={{ background: gradients[color] || gradients.blue }}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:-rotate-3"
+                    style={{
+                        background: gradients[color] || gradients.blue,
+                        boxShadow: `0 8px 16px -4px ${color === 'red' ? 'rgba(239,68,68,0.4)' : color === 'green' ? 'rgba(16,185,129,0.4)' : color === 'amber' ? 'rgba(245,158,11,0.4)' : 'rgba(99,102,241,0.4)'}`
+                    }}
                 >
-                    {Icon && <Icon size={16} className="text-white" />}
+                    {Icon && <Icon size={18} className="text-white drop-shadow-md" />}
                 </div>
             </div>
-            <div>
-                <span className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                    {value}
-                </span>
-                {trend && (
-                    <span className="ml-2 text-xs font-semibold" style={{ color: trendColors[trend] || trendColors.stable }}>
-                        {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
+            <div className="relative z-10 mt-1">
+                <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-black tracking-tight text-white drop-shadow-sm">
+                        {value}
                     </span>
+                    {trend && (
+                        <div
+                            className="flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            style={{
+                                background: `${trendColors[trend] || trendColors.stable}20`,
+                                border: `1px solid ${trendColors[trend] || trendColors.stable}40`,
+                                color: trendColors[trend] || trendColors.stable
+                            }}
+                        >
+                            {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'}
+                            <span>{trend === 'up' ? 'Inc.' : trend === 'down' ? 'Dec.' : ''}</span>
+                        </div>
+                    )}
+                </div>
+                {subtitle && (
+                    <p className="text-xs font-medium mt-2" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
                 )}
             </div>
-            {subtitle && (
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{subtitle}</p>
-            )}
         </div>
     );
 }

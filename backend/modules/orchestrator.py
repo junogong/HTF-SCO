@@ -211,8 +211,41 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
     affected_products = [n for n in blast_radius["affected_nodes"] if n.get("type") == "Product"]
     affected_components = [n for n in blast_radius["affected_nodes"] if n.get("type") == "Component"]
     
-    # Pre-calculate deterministic revenue to ground the AI agents
-    total_annual_revenue = sum(p.get("annual_revenue", 0) for p in affected_products)
+    # ── Revenue-at-Risk Calculation (calibrated) ─────────────────────
+    # Instead of naively summing 100% of all affected product revenues,
+    # we estimate a realistic exposure using three scaling factors:
+    #
+    #   1. Severity factor:    severity / 10  (a severity-3 event ≠ losing all revenue)
+    #   2. Duration fraction:  estimated weeks of disruption / 52 weeks in a year
+    #   3. BOM concentration:  what % of the product's components are actually affected
+    #
+    severity = classification.get("severity", 5)
+    severity_factor = severity / 10.0  # 0.1 – 1.0
+
+    # Map severity to estimated disruption duration in weeks
+    # 1-3: ~1 week, 4-6: ~3 weeks, 7-8: ~6 weeks, 9-10: ~12 weeks
+    duration_weeks = {1: 0.5, 2: 1, 3: 1.5, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6, 9: 10, 10: 12}.get(severity, 3)
+    duration_fraction = duration_weeks / 52.0
+
+    # For each product, calculate what fraction of its BOM is disrupted
+    affected_component_ids = {c.get("id") for c in affected_components}
+    total_revenue_at_risk = 0
+    for prod in affected_products:
+        # Count total components in this product's BOM
+        prod_component_edges = graph_db.get_edges(edge_type="USED_IN")
+        prod_bom_size = sum(1 for e in prod_component_edges if e["target_id"] == prod["id"])
+        # Count how many of those are affected
+        affected_in_bom = sum(1 for e in prod_component_edges
+                              if e["target_id"] == prod["id"] and e["source_id"] in affected_component_ids)
+        bom_fraction = (affected_in_bom / max(prod_bom_size, 1))
+
+        product_exposure = prod.get("annual_revenue", 0) * severity_factor * duration_fraction * bom_fraction
+        total_revenue_at_risk += product_exposure
+
+    total_revenue_at_risk = round(total_revenue_at_risk)
+
+    # Also keep the raw total for context (but don't use it for escalation)
+    total_annual_revenue = total_revenue_at_risk
 
     trace.append({
         "step": 2,
@@ -253,6 +286,7 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
         "affected_suppliers": safe_suppliers,
         "blast_radius": blast_radius,
         "total_annual_revenue": total_annual_revenue,
+        "calibrated_revenue_at_risk": total_revenue_at_risk,
         "risk_appetite": risk_appetite,
         "past_lessons": lesson_docs,
     }
@@ -289,7 +323,8 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
     )
 
     confidence_score = synthesis.get("confidence_score", 70)
-    revenue_at_risk = synthesis.get("revenue_at_risk", finance_analysis.get("revenue_at_risk", 0))
+    # Use the deterministic calibrated revenue — do NOT trust the AI's number
+    revenue_at_risk = total_revenue_at_risk
     requires_manual_review = confidence_score < CONFIDENCE_THRESHOLD
     executive_escalation = revenue_at_risk > revenue_threshold
 

@@ -43,7 +43,7 @@ The "input" field is the raw news headline text.
 BATCH_SIZE = 25  # Signals per API call
 
 
-def generate_sft_dataset(total_examples=200, output_dir=None):
+def generate_sft_dataset(total_examples=750, output_dir=None):
     """
     Generate a supervised fine-tuning dataset using Gemini Pro as the "teacher".
     
@@ -94,7 +94,7 @@ def generate_sft_dataset(total_examples=200, output_dir=None):
             from vertexai.generative_models import GenerativeModel
             from config import GCP_PROJECT_ID, GCP_REGION
 
-            model = GenerativeModel("gemini-1.5-pro")
+            model = GenerativeModel("gemini-2.5-pro")
             response = model.generate_content(
                 prompt + "\n\nRespond with ONLY a valid JSON array. No markdown, no code fences."
             )
@@ -131,14 +131,22 @@ def generate_sft_dataset(total_examples=200, output_dir=None):
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for ex in all_examples:
             training_line = {
-                "input": ex.get("input", ""),
-                "output": json.dumps({
-                    "category": ex.get("category", "general"),
-                    "severity": ex.get("severity", 5),
-                    "region": ex.get("region"),
-                    "reasoning": ex.get("reasoning", ""),
-                    "keywords": ex.get("keywords", []),
-                }, ensure_ascii=False),
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": ex.get("input", "")}]
+                    },
+                    {
+                        "role": "model",
+                        "parts": [{"text": json.dumps({
+                            "category": ex.get("category", "general"),
+                            "severity": ex.get("severity", 5),
+                            "region": ex.get("region"),
+                            "reasoning": ex.get("reasoning", ""),
+                            "keywords": ex.get("keywords", []),
+                        }, ensure_ascii=False)}]
+                    }
+                ]
             }
             f.write(json.dumps(training_line, ensure_ascii=False) + "\n")
 
@@ -217,14 +225,22 @@ def _generate_template_dataset(total_examples, output_dir):
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for ex in all_examples:
             training_line = {
-                "input": ex["input"],
-                "output": json.dumps({
-                    "category": ex["category"],
-                    "severity": ex["severity"],
-                    "region": ex.get("region"),
-                    "reasoning": ex.get("reasoning", ""),
-                    "keywords": ex.get("keywords", []),
-                }, ensure_ascii=False),
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": ex["input"]}]
+                    },
+                    {
+                        "role": "model",
+                        "parts": [{"text": json.dumps({
+                            "category": ex["category"],
+                            "severity": ex["severity"],
+                            "region": ex.get("region"),
+                            "reasoning": ex.get("reasoning", ""),
+                            "keywords": ex.get("keywords", []),
+                        }, ensure_ascii=False)}]
+                    }
+                ]
             }
             f.write(json.dumps(training_line, ensure_ascii=False) + "\n")
 
@@ -282,7 +298,7 @@ def launch_tuning_job(dataset_path=None, tuned_model_name=None):
 
         # Launch tuning job
         tuning_job = sft_tuning.train(
-            source_model="gemini-1.5-flash-002",
+            source_model="gemini-2.5-flash-lite",
             train_dataset=gcs_uri,
             tuned_model_display_name=tuned_model_name,
             epochs=3,
@@ -301,13 +317,19 @@ def launch_tuning_job(dataset_path=None, tuned_model_name=None):
 
 
 if __name__ == "__main__":
+    # Ensure the backend root is on sys.path so `services.*` and `config` resolve
+    import sys
+    backend_root = str(Path(__file__).parent.parent)
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+
     logging.basicConfig(level=logging.INFO)
     
     print("🎓 Supply Chain Risk — SFT Dataset Generator")
     print("=" * 50)
     
     # Step A+B: Generate + format
-    path = generate_sft_dataset(total_examples=200)
+    path = generate_sft_dataset(total_examples=750)
     print(f"\n📄 Dataset ready at: {path}")
     
     # Step C: Launch tuning (only if real Vertex)

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCircle, ShieldCheck, Lock, History, Clock, Wind, ArrowRight, Package } from 'lucide-react';
+import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCircle, ShieldCheck, Lock, History, Clock, Wind, ArrowRight, Package, Newspaper, Loader2, Radio } from 'lucide-react';
 import ReasoningTrace from '../components/ReasoningTrace';
 import HealthBadge from '../components/HealthBadge';
 import OverrideModal from '../components/OverrideModal';
@@ -25,6 +25,10 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
     const [loading, setLoading] = useState(false);
     const [showOverride, setShowOverride] = useState(false);
 
+    // News scraping state
+    const [scraping, setScraping] = useState(false);
+    const [scrapeResult, setScrapeResult] = useState(null);
+
     const result = activeIndex >= 0 ? disruptionHistory[activeIndex] : null;
 
     const analyze = async () => {
@@ -38,6 +42,35 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
             console.error(err);
         }
         setLoading(false);
+    };
+
+    const scanNews = async () => {
+        setScraping(true);
+        setScrapeResult(null);
+        try {
+            const res = await api.post('/cron/scrape-finviz');
+            setScrapeResult(res.data);
+
+            // Auto-fetch and add any auto-analyzed disruptions to the history
+            if (res.data.auto_analyzed > 0) {
+                const disruptionsRes = await api.get('/cron/auto-disruptions');
+                const newDisruptions = disruptionsRes.data.disruptions || [];
+                // Add each auto-disruption to history (newest first)
+                for (const d of newDisruptions.reverse()) {
+                    // Avoid duplicates (check by strategy name)
+                    const isDuplicate = disruptionHistory.some(
+                        h => h.strategy?.name === d.strategy?.name
+                    );
+                    if (!isDuplicate) {
+                        onAddDisruption?.(d);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Scrape failed:', err);
+            setScrapeResult({ status: 'error', message: err.message });
+        }
+        setScraping(false);
     };
 
     return (
@@ -114,7 +147,83 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                     >
                         {loading ? <div className="spinner" /> : <><Send size={16} /> Analyze Disruption</>}
                     </button>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                        <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)' }}>or</span>
+                        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                    </div>
+
+                    {/* Scan Live News Button */}
+                    <button
+                        className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                        onClick={scanNews}
+                        disabled={scraping}
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.12))',
+                            border: '1px solid rgba(245,158,11,0.3)',
+                            color: '#f59e0b',
+                        }}
+                    >
+                        {scraping ? <Loader2 size={16} className="animate-spin" /> : <Newspaper size={16} />}
+                        {scraping ? 'Scanning Finviz News Feed...' : 'Scan Live News Feed'}
+                    </button>
                 </div>
+
+                {/* Scrape Results */}
+                {scrapeResult && (
+                    <div className="glass-card" style={{ borderColor: scrapeResult.auto_analyzed > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.2)' }}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <Radio size={14} className="text-amber-400" />
+                                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+                                    News Feed Scan Results
+                                </h3>
+                            </div>
+                            <div className="flex gap-2">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-500/15 text-blue-400">
+                                    {scrapeResult.scraped_total} scraped
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-400">
+                                    {scrapeResult.classified} classified
+                                </span>
+                                {scrapeResult.auto_analyzed > 0 && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-red-500/15 text-red-400 animate-pulse">
+                                        {scrapeResult.auto_analyzed} disruption(s) detected!
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* High-severity signals */}
+                        {scrapeResult.high_severity_signals?.length > 0 && (
+                            <div className="space-y-1.5">
+                                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>High-Severity Signals (auto-analyzed)</p>
+                                {scrapeResult.high_severity_signals.map((s, i) => (
+                                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.06)' }}>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${s.severity >= 8 ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'
+                                            }`}>
+                                            SEV {s.severity}
+                                        </span>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-500/15" style={{ color: 'var(--text-secondary)' }}>
+                                            {s.category}
+                                        </span>
+                                        <span className="text-xs flex-1 truncate" style={{ color: 'var(--text-secondary)' }}>
+                                            {s.text}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {scrapeResult.auto_analyzed === 0 && scrapeResult.status === 'success' && (
+                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                No high-severity supply chain disruptions detected in the current news cycle.
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Wind Tunnel Result — distinct UI */}
                 {result && result.source === 'wind-tunnel' && result.wind_tunnel_reasoning && (

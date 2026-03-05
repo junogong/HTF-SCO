@@ -31,7 +31,10 @@ export default function App() {
 
   const renderPage = () => {
     switch (activePage) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard
+        activeResult={activeResult}
+        disruptionHistory={disruptionHistory}
+      />;
       case 'graph': return <SupplyGraph analysisResult={activeResult} />;
       case 'disruption': return <Disruption
         disruptionHistory={disruptionHistory}
@@ -60,7 +63,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen">
       <Sidebar activePage={activePage} onNavigate={setActivePage} />
-      <main style={{ marginLeft: '220px', padding: '32px', flex: 1 }}>
+      <main style={{ marginLeft: '240px', padding: '32px', flex: 1, position: 'relative', zIndex: 1 }}>
         {renderPage()}
       </main>
     </div>
