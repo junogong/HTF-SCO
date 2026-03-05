@@ -25,42 +25,22 @@ def ingest_signal(text, signal_type="news"):
     all_matches = graph_db.vector_search(embedding, node_type="Supplier", top_k=8)
     relevant_suppliers = [m for m in all_matches if m["similarity"] >= VECTOR_MATCH_THRESHOLD]
 
-    # Step 4: Match by country/keyword from classification
-    # Use country-level matching, not broad region, to avoid false positives
-    region_matched = []
-    detected_region = classification.get("region")
-    detected_keywords = classification.get("keywords", [])
-    signal_lower = text.lower()
-
-    if detected_region:
+    # Step 4: Match by country from classification
+    country_matched = []
+    detected_countries = classification.get("affected_countries", [])
+    
+    if detected_countries:
+        detected_countries_lower = [c.lower() for c in detected_countries]
         for sup in graph_db.get_all_nodes("Supplier"):
             # Already matched by vector search? Skip.
             if any(r["node"]["id"] == sup["id"] for r in relevant_suppliers):
                 continue
 
             sup_country = sup.get("country", "").lower()
-            sup_region = sup.get("region", "")
             
-            # Map demonyms to country names for better matching
-            demonym_map = {
-                "german": "germany", "french": "france", "chinese": "china", 
-                "japanese": "japan", "indian": "india", "mexican": "mexico", 
-                "taiwanese": "taiwan", "korean": "south korea", "korea": "south korea"
-            }
-            
-            # Direct country mention in signal text = strong match
-            if sup_country and (sup_country in signal_lower or any(d in signal_lower for d, c in demonym_map.items() if c == sup_country)):
-                region_matched.append(sup)
-            # Region match only if country is also mentioned or region is very specific (South Asia = 1 supplier)
-            elif sup_region == detected_region:
-                # Count how many suppliers share this region
-                same_region_count = sum(
-                    1 for s in graph_db.get_all_nodes("Supplier")
-                    if s.get("region") == detected_region
-                )
-                # Auto-match if it's a narrow region (≤2) OR if the region name itself is explicitly in the text
-                if same_region_count <= 2 or detected_region.lower() in signal_lower:
-                    region_matched.append(sup)
+            # Direct country match based on the AI classifier's explicit extraction
+            if sup_country and sup_country in detected_countries_lower:
+                country_matched.append(sup)
 
     # Step 5: Store signal as a node
     signal_id = graph_db.add_node("Signal", properties={
@@ -68,7 +48,7 @@ def ingest_signal(text, signal_type="news"):
         "type": signal_type,
         "category": classification["category"],
         "severity": classification["severity"],
-        "region": classification.get("region"),
+        "affected_countries": classification.get("affected_countries", []),
         "keywords": classification.get("keywords", []),
         "embedding": embedding,
         "source_label": classification.get("source_label", f"Signal: {text[:60]}"),
@@ -84,9 +64,9 @@ def ingest_signal(text, signal_type="news"):
         })
         affected_supplier_ids.append(sup["id"])
 
-    for sup in region_matched:
+    for sup in country_matched:
         graph_db.add_edge("Signal", signal_id, "Supplier", sup["id"], "AFFECTS", {
-            "match_type": "region",
+            "match_type": "country",
         })
         if sup["id"] not in affected_supplier_ids:
             affected_supplier_ids.append(sup["id"])

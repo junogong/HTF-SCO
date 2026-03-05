@@ -216,46 +216,9 @@ class VertexAISimulator:
         }
 
     def _classifier_response(self, text):
-        text_lower = text.lower()
-        # Keyword-based classification
-        categories = {
-            "geopolitical": ["war", "sanction", "tariff", "conflict", "political", "embargo", "trade war"],
-            "weather": ["earthquake", "flood", "typhoon", "hurricane", "monsoon", "tsunami", "storm", "wildfire"],
-            "financial": ["bankruptcy", "default", "recession", "credit", "debt", "acquisition", "merger"],
-            "quality": ["recall", "defect", "contamination", "failure", "inspection", "compliance"],
-            "logistics": ["port", "shipping", "container", "freight", "customs", "delay", "strike"],
-        }
+        from modules.classifier import classifier
+        return classifier.classify(text)
 
-        detected_category = "general"
-        severity = 5
-        for cat, keywords in categories.items():
-            for kw in keywords:
-                if kw in text_lower:
-                    detected_category = cat
-                    severity = min(10, severity + 2)
-                    break
-
-        # Country/region extraction
-        regions = {
-            "taiwan": "East Asia", "china": "East Asia", "japan": "East Asia", "korea": "East Asia",
-            "india": "South Asia", "vietnam": "Southeast Asia", "thailand": "Southeast Asia",
-            "germany": "Europe", "france": "Europe", "uk": "Europe",
-            "mexico": "North America", "brazil": "South America",
-            "shanghai": "East Asia", "shenzhen": "East Asia",
-        }
-        detected_region = None
-        for place, region in regions.items():
-            if place in text_lower:
-                detected_region = region
-                break
-
-        return {
-            "category": detected_category,
-            "severity": min(severity, 10),
-            "region": detected_region,
-            "keywords": [w for cat in categories.values() for w in cat if w in text_lower],
-            "source_label": f"Signal: {text[:80]}..." if len(text) > 80 else f"Signal: {text}",
-        }
 
     def _email_response(self, ctx):
         supplier_name = ctx.get("supplier_name", "Valued Partner")

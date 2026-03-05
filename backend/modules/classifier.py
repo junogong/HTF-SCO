@@ -22,7 +22,7 @@ Return ONLY valid JSON in this exact format:
 {
   "category": "geopolitical|weather|financial|quality|logistics|cyber|pandemic|general",
   "severity": <1-10 integer>,
-  "region": "<geographic region or null>",
+  "affected_countries": ["Country1", "Country2"],
   "reasoning": "<1 sentence explaining why this severity>",
   "keywords": ["keyword1", "keyword2"]
 }
@@ -42,6 +42,10 @@ Categories:
 - cyber: ransomware, data breaches, IT outages, system failures
 - pandemic: disease outbreaks, quarantines, lockdowns, travel bans
 - general: does not clearly fit the above categories
+
+Important Geographic Rules:
+- If a river, landmark, or sub-region is mentioned (e.g. "Rhine river flooding", "Suez canal block"), you MUST map it to the specific countries affected (e.g., ["Germany", "Netherlands"] for Rhine, ["Egypt"] for Suez).
+- Do not output broad regions like "Europe" or "Asia" in the `affected_countries` array. Only output specific country names (e.g., "South Korea", "China", "United States", "Germany").
 """
 
 
@@ -124,6 +128,13 @@ class HighSpeedClassifier:
                     text = text[4:].strip()
 
                 result = json.loads(text)
+
+                # Graceful fallback: The fine-tuned model might return the legacy 'region' field.
+                # If so, force keyword fallback to ensure specific countries are extracted.
+                if "affected_countries" not in result and "region" in result:
+                    logger.warning("⚡ Model returned legacy 'region' instead of 'affected_countries' — forcing keyword fallback")
+                    return self._keyword_classify(signal_text)
+
                 result["source_label"] = f"Signal: {signal_text[:80]}..." if len(signal_text) > 80 else f"Signal: {signal_text}"
                 result["classifier"] = "fine-tuned-flash" if TUNED_MODEL_ENDPOINT else "base-flash"
                 logger.info(f"🟢 Signal classified via {'Fine-Tuned AI' if TUNED_MODEL_ENDPOINT else 'Base AI'}")
@@ -161,30 +172,90 @@ class HighSpeedClassifier:
                     detected_keywords.append(kw)
                     break
 
-        regions = {
-            "taiwan": "East Asia", "china": "East Asia", "chinese": "East Asia",
-            "japan": "East Asia", "japanese": "East Asia", "korea": "East Asia",
-            "india": "South Asia", "indian": "South Asia",
-            "vietnam": "Southeast Asia", "thailand": "Southeast Asia", "indonesia": "Southeast Asia",
-            "germany": "Europe", "german": "Europe", "france": "Europe", "uk": "Europe",
-            "mexico": "North America", "brazil": "South America",
-            "shanghai": "East Asia", "shenzhen": "East Asia",
-            "suez": "Middle East", "panama": "Central America",
+        # ── Direct country-name lookups ──────────────────────────────
+        direct_countries = {
+            "taiwan": "Taiwan", "china": "China", "japan": "Japan",
+            "south korea": "South Korea", "korea": "South Korea",
+            "india": "India", "vietnam": "Vietnam", "thailand": "Thailand",
+            "indonesia": "Indonesia", "germany": "Germany", "france": "France",
+            "united kingdom": "United Kingdom", "uk": "United Kingdom",
+            "britain": "United Kingdom", "mexico": "Mexico", "brazil": "Brazil",
+            "egypt": "Egypt", "panama": "Panama", "ukraine": "Ukraine",
+            "congo": "D.R. Congo", "chile": "Chile", "malaysia": "Malaysia",
+            "singapore": "Singapore", "philippines": "Philippines",
+            "turkey": "Turkey", "iran": "Iran", "iraq": "Iraq",
+            "saudi arabia": "Saudi Arabia", "united states": "United States",
+            "canada": "Canada", "australia": "Australia", "russia": "Russia",
+            "italy": "Italy", "spain": "Spain", "netherlands": "Netherlands",
+            "belgium": "Belgium", "poland": "Poland", "sweden": "Sweden",
+            "norway": "Norway", "switzerland": "Switzerland",
+            "south africa": "South Africa", "nigeria": "Nigeria",
+            "argentina": "Argentina", "colombia": "Colombia",
         }
-        detected_region = None
-        for place, region in regions.items():
-            if place in text_lower:
-                detected_region = region
-                break
+
+        # ── Geographic features → affected countries ─────────────────
+        geographic_mappings = {
+            # Rivers
+            "rhine": ["Germany", "Netherlands", "France", "Switzerland"],
+            "danube": ["Germany", "Austria", "Hungary", "Romania"],
+            "mekong": ["Vietnam", "Thailand", "Cambodia", "Laos"],
+            "yangtze": ["China"], "yellow river": ["China"],
+            "ganges": ["India", "Bangladesh"],
+            "nile": ["Egypt", "Sudan"],
+            "mississippi": ["United States"],
+            "amazon": ["Brazil", "Colombia", "Peru"],
+            # Straits & canals
+            "suez": ["Egypt"],
+            "panama canal": ["Panama"],
+            "strait of malacca": ["Malaysia", "Singapore", "Indonesia"],
+            "malacca": ["Malaysia", "Singapore", "Indonesia"],
+            "strait of hormuz": ["Iran", "Oman"],
+            "hormuz": ["Iran", "Oman"],
+            "bosphorus": ["Turkey"],
+            "taiwan strait": ["Taiwan", "China"],
+            # Cities / industrial hubs
+            "shanghai": ["China"], "shenzhen": ["China"],
+            "guangzhou": ["China"], "beijing": ["China"],
+            "tokyo": ["Japan"], "osaka": ["Japan"],
+            "seoul": ["South Korea"], "busan": ["South Korea"],
+            "mumbai": ["India"], "chennai": ["India"],
+            "ho chi minh": ["Vietnam"], "hanoi": ["Vietnam"],
+            "bangkok": ["Thailand"],
+            "rotterdam": ["Netherlands"],
+            "hamburg": ["Germany"],
+            "los angeles": ["United States"],
+            "long beach": ["United States"],
+            # Sub-regions
+            "pearl river delta": ["China"],
+            "ruhr": ["Germany"],
+            "baltic": ["Germany", "Poland", "Sweden", "Finland"],
+            "black sea": ["Turkey", "Romania", "Ukraine", "Russia"],
+            "south china sea": ["China", "Vietnam", "Philippines"],
+            "east china sea": ["China", "Japan", "South Korea"],
+        }
+
+        detected_countries = []
+
+        # Match direct country names
+        for kw, country in direct_countries.items():
+            if kw in text_lower and country not in detected_countries:
+                detected_countries.append(country)
+
+        # Match geographic features to their affected countries
+        for kw, cntry_list in geographic_mappings.items():
+            if kw in text_lower:
+                for c in cntry_list:
+                    if c not in detected_countries:
+                        detected_countries.append(c)
 
         return {
             "category": detected_category,
             "severity": min(severity, 10),
-            "region": detected_region,
-            "reasoning": f"Keyword match: {', '.join(detected_keywords) if detected_keywords else 'no strong signals'}",
+            "affected_countries": detected_countries,
+            "reasoning": f"Detected keywords: {', '.join(detected_keywords)}",
             "keywords": detected_keywords,
             "source_label": f"Signal: {text[:80]}..." if len(text) > 80 else f"Signal: {text}",
-            "classifier": "keyword-fallback",
+            "classifier": "keyword-fallback"
         }
 
 
