@@ -42,7 +42,11 @@ def ingest_signal(text, signal_type="news"):
             sup_region = sup.get("region", "")
             
             # Map demonyms to country names for better matching
-            demonym_map = {"german": "germany", "french": "france", "chinese": "china", "japanese": "japan", "indian": "india", "mexican": "mexico", "taiwanese": "taiwan"}
+            demonym_map = {
+                "german": "germany", "french": "france", "chinese": "china", 
+                "japanese": "japan", "indian": "india", "mexican": "mexico", 
+                "taiwanese": "taiwan", "korean": "south korea", "korea": "south korea"
+            }
             
             # Direct country mention in signal text = strong match
             if sup_country and (sup_country in signal_lower or any(d in signal_lower for d, c in demonym_map.items() if c == sup_country)):

@@ -76,7 +76,10 @@ class HighSpeedClassifier:
 
             if TUNED_MODEL_ENDPOINT:
                 # Use fine-tuned model
-                self._model = GenerativeModel(TUNED_MODEL_ENDPOINT)
+                self._model = GenerativeModel(
+                    TUNED_MODEL_ENDPOINT,
+                    system_instruction=CLASSIFIER_SYSTEM_INSTRUCTION,
+                )
                 logger.info(f"⚡ Classifier: using fine-tuned model → {TUNED_MODEL_ENDPOINT}")
             else:
                 # Use base Flash with system instruction
@@ -123,12 +126,14 @@ class HighSpeedClassifier:
                 result = json.loads(text)
                 result["source_label"] = f"Signal: {signal_text[:80]}..." if len(signal_text) > 80 else f"Signal: {signal_text}"
                 result["classifier"] = "fine-tuned-flash" if TUNED_MODEL_ENDPOINT else "base-flash"
+                logger.info(f"🟢 Signal classified via {'Fine-Tuned AI' if TUNED_MODEL_ENDPOINT else 'Base AI'}")
                 return result
 
             except Exception as e:
                 logger.warning(f"⚡ Flash classifier failed: {e} — falling back to keywords")
 
         # Fallback: deterministic keyword classification
+        logger.info("🟡 Signal classified via Keyword Fallback")
         return self._keyword_classify(signal_text)
 
     def _keyword_classify(self, text):

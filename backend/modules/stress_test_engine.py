@@ -66,7 +66,6 @@ def run_scenario(scenario: dict) -> dict:
     all_tier1 = []
     all_products = []
     all_risk_paths = []
-    total_revenue = 0
 
     # Run tiered blast radius from each directly-affected supplier
     for sup in affected_suppliers:
@@ -80,7 +79,6 @@ def run_scenario(scenario: dict) -> dict:
             if not any(x["id"] == prod["id"] for x in all_products):
                 all_products.append(prod)
         all_risk_paths.extend(radius["risk_paths"])
-        total_revenue += radius["revenue_at_risk"]
 
     # Also check sub-supplier nodes matched by region
     classification = ingestion.get("classification", {})
@@ -99,6 +97,40 @@ def run_scenario(scenario: dict) -> dict:
             for prod in radius["products_at_risk"]:
                 if not any(x["id"] == prod["id"] for x in all_products):
                     all_products.append(prod)
+
+    # ── Calibrated Revenue-at-Risk (matches orchestrator.py logic) ────
+    # Instead of naively summing 100% of annual revenue, scale by:
+    #   1. Severity factor:   severity / 10
+    #   2. Duration fraction: estimated disruption weeks / 52
+    #   3. BOM concentration: fraction of each product's components affected
+    severity = classification.get("severity", 5)
+    severity_factor = severity / 10.0
+
+    duration_weeks = {1: 0.5, 2: 1, 3: 1.5, 4: 2, 5: 3, 6: 4, 7: 5, 8: 6, 9: 10, 10: 12}.get(severity, 3)
+    duration_fraction = duration_weeks / 52.0
+
+    # Collect IDs of all affected components from blast radius traversal
+    affected_component_ids = set()
+    for sup in affected_suppliers:
+        if not sup:
+            continue
+        sup_components = graph_db.query_neighbors(sup.get("type", "Supplier"), sup["id"], edge_type="SUPPLIES")
+        for neighbor in sup_components:
+            comp = neighbor.get("node", {})
+            if comp.get("type") == "Component":
+                affected_component_ids.add(comp["id"])
+
+    total_revenue = 0
+    all_bom_edges = graph_db.get_edges(edge_type="USED_IN")
+    for prod in all_products:
+        prod_bom_size = sum(1 for e in all_bom_edges if e["target_id"] == prod["id"])
+        affected_in_bom = sum(1 for e in all_bom_edges
+                              if e["target_id"] == prod["id"] and e["source_id"] in affected_component_ids)
+        bom_fraction = affected_in_bom / max(prod_bom_size, 1)
+        product_exposure = prod.get("annual_revenue", 0) * severity_factor * duration_fraction * bom_fraction
+        total_revenue += product_exposure
+
+    total_revenue = round(total_revenue)
 
     # Recommend pre-emptive stock builds for critical components
     preemptive_actions = _recommend_preemptive_actions(all_tier1, all_products, total_revenue)

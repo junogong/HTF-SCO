@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard';
 import SupplyGraph from './pages/SupplyGraph';
 import Disruption from './pages/Disruption';
 import ActionCenter from './pages/ActionCenter';
-import Onboarding from './pages/Onboarding';
+
 import SafetyDashboard from './pages/SafetyDashboard';
 import StressTest from './pages/StressTest';
 
@@ -54,7 +54,7 @@ export default function App() {
         dismissedActionIds={dismissedActionIds}
         onDismissAction={handleDismissAction}
       />;
-      case 'onboarding': return <Onboarding />;
+
       case 'safety': return <SafetyDashboard disruptionHistory={disruptionHistory} />;
       default: return <Dashboard />;
     }

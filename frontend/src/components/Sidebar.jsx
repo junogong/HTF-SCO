@@ -1,6 +1,6 @@
 import {
     LayoutDashboard, GitBranch, AlertTriangle, CheckSquare,
-    UserPlus, Shield, ShieldCheck, Wind
+    Shield, ShieldCheck, Wind
 } from 'lucide-react';
 
 const navItems = [
@@ -9,7 +9,7 @@ const navItems = [
     { id: 'disruption', label: 'Disruption Analysis', icon: AlertTriangle },
     { id: 'stress-test', label: 'Wind Tunnel', icon: Wind },
     { id: 'actions', label: 'Action Center', icon: CheckSquare },
-    { id: 'onboarding', label: 'Onboarding', icon: UserPlus },
+
     { id: 'safety', label: 'Responsible AI', icon: ShieldCheck },
 ];
 

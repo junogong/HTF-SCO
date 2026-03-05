@@ -126,6 +126,52 @@ Communication Templates:
   - Any single-source component must have a documented dual-source qualification roadmap.
   - Revenue-at-risk calculations must use calibrated severity and duration models, not raw sums.
   - Audit trail required for all automated actions — log signal, classification, actions, approvals.
+
+=== ENVIRONMENTAL, SOCIAL, AND GOVERNANCE (ESG) PROTOCOLS ===
+  - Carbon footprint impact must be calculated for all air-freight expedited shipments.
+  - Suppliers flagged for labor violations must trigger an immediate localized audit within 48 hours.
+  - Any substitution of raw materials (e.g., cobalt, lithium) must preserve conflict-free traceability.
+  - If a disruption affects a Tier-2 or Tier-3 supplier, we must guarantee they have local environmental clearance.
+  - Temporary labor mobilized for recovery efforts must meet fair wage standards as per ILO conventions.
+  - E-waste resulting from scrapped or quarantined inventory must be recycled via certified ISO 14001 partners.
+  - Water usage in semiconductor fab contingencies must align with the drought-resistance charter of our local operations.
+  - Any rerouting via maritime freight MUST prioritize carriers utilizing low-sulfur fuel or LNG to meet our 2030 net-zero targets.
+
+=== LEGAL & CONTRACTUAL EXPOSURE LIMITS ===
+  - Force Majeure clauses can only be invoked by suppliers if verified by an independent third party or government declaration.
+  - Service Level Agreement (SLA) penalties for late customer deliveries are capped at 15% of the total PO value.
+  - In cases of port strikes, demurrage and detention charges are to be split 50/50 with designated freight forwarders unless explicitly waived.
+  - Intellectual Property (IP) protection remains paramount; unauthorized sub-contracting by suppliers during a crisis is grounds for immediate contract termination.
+  - Indemnification for lost revenue cannot be demanded from Tier-2 suppliers unless direct negligence in disaster preparedness is proven.
+  - All communication regarding delivery delays to publicly traded clients must be cleared by Corporate Comms to avoid SEC disclosure violations.
+  - Airfreight capacity block agreements must not exceed a 6-month commitment window without CFO approval.
+
+=== ADVANCED INVENTORY MANAGEMENT STRATEGIES ===
+  - Safety stock algorithms must dynamically adjust standard deviations based on real-time geopolitical risk scores.
+  - "Postponement" manufacturing should be engaged whenever regional bottlenecks arise, keeping products in semi-finished states.
+  - Nearshoring fallback sites (e.g., Mexico, Eastern Europe) operate on a "warm standby" requiring 14 days to reach 50% capacity.
+  - Scrappage rates exceeding 2% during a rapid supplier switch automatically pause the transition plan for a root-cause analysis.
+  - Vendor Managed Inventory (VMI) hubs must maintain a strict FIFO (First-In, First-Out) rotation to prevent obsolescence during demand spikes.
+  - Cross-docking facilities are mandated to process emergency components (Severity 8+) within a 2-hour window.
+  - Dead stock resulting from cancelled orders must be liquidated within 90 days or written off against the disruption's overall financial impact.
+  - Multi-echelon inventory optimization models will be re-run weekly during any sustained (30+ day) crisis.
+
+=== CUSTOMS AND IMPORT EXPORT (TRADE COMPLIANCE) ===
+  - Rerouted shipments must possess verified HS (Harmonized System) Codes to prevent border delays.
+  - Goods manufactured in restricted zones are strictly forbidden from entering our supply chain, regardless of the severity of the shortage.
+  - Letters of Credit (LC) for alternate suppliers must be expedited through our partner banks with a 24-hour turnaround SLA.
+  - Tariffs incurred due to emergency rerouting (e.g., avoiding the Suez Canal by going around the Cape of Good Hope) must be logged as "Extraordinary Transportation Costs."
+  - Origin tracing documentation (Certificates of Origin) must be verifiable via blockchain or secure digital ledger for all premium components.
+  - Free Trade Agreement (FTA) utilization is optional during a Severity 9+ crisis if speed outweighs the duty savings.
+  - Customs brokers must be given pre-arrival notification at least 48 hours prior to vessel docking.
+
+=== INTERNAL SYSTEM CONFIGURATION & REDUNDANCY ===
+  - Our primary ERP system operates with a dual-active failover in separate geographical zones to ensure 99.999% uptime.
+  - The AI Control Tower syncs with the ERP every 15 minutes, but emergency overrides push data instantaneously.
+  - Access to the War Room dashboard is restricted to Level 4+ personnel during a declared "Critical" event.
+  - Multi-agent debate thresholds: If the Logistics Agent and Finance Agent diverge by more than 30 points in confidence, human-in-the-loop (HITL) is mandatory.
+  - Hallucination Intercept: Any supplier name generated that does not exist in the Spanner graph is automatically blocked and flagged.
+  - AI recommendations involving capital expenditure over $1M require a complete reasoning trace review by the VP of Supply Chain.
 """
 
 # ── Cache Manager ────────────────────────────────────────────────────

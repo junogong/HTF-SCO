@@ -7,7 +7,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from routes.disruption import disruption_bp
-from routes.onboard import onboard_bp
+
 from routes.feedback import feedback_bp
 from routes.graph import graph_bp
 from routes.suppliers import suppliers_bp
@@ -25,7 +25,7 @@ def create_app():
 
     # Register blueprints
     app.register_blueprint(disruption_bp)
-    app.register_blueprint(onboard_bp)
+
     app.register_blueprint(feedback_bp)
     app.register_blueprint(graph_bp)
     app.register_blueprint(suppliers_bp)
