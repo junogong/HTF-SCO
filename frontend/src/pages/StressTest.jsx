@@ -28,19 +28,19 @@ export default function StressTest({
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className={`animate-fade-in w-full ${result || loading ? 'space-y-6' : 'flex flex-col justify-center min-h-[calc(100vh-120px)] space-y-8 text-center'}`} style={{ maxWidth: '1100px', margin: '0 auto' }}>
             {/* Header */}
-            <div className="flex items-start justify-between">
+            <div className={result || loading ? "flex items-start justify-between" : "flex flex-col items-center gap-6"}>
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                    <h2 className={`${result || loading ? 'text-2xl' : 'text-4xl'} font-bold tracking-tight`} style={{ color: 'var(--text-primary)' }}>
                         Digital Wind Tunnel
                     </h2>
-                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <p className={`${result || loading ? 'text-sm mt-1' : 'text-lg mt-2'}`} style={{ color: 'var(--text-secondary)' }}>
                         Monte Carlo stress-testing — simulate black-swan scenarios before they happen
                     </p>
                 </div>
-                <button className="btn-primary" onClick={run} disabled={loading}>
-                    {loading ? <div className="spinner" /> : <><Play size={16} /> Run Simulation</>}
+                <button className={`btn-primary ${result || loading ? '' : 'py-4 px-8 text-lg justify-center shadow-xl w-64'}`} onClick={run} disabled={loading}>
+                    {loading ? <div className="spinner" /> : <><Play size={result || loading ? 16 : 20} /> Run Simulation</>}
                 </button>
             </div>
 

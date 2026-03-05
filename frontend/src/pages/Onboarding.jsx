@@ -49,12 +49,12 @@ export default function Onboarding() {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
-            <div>
-                <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+        <div className="flex flex-col justify-center min-h-[calc(100vh-120px)] space-y-8 animate-fade-in w-full" style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <div className="text-center">
+                <h2 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
                     Onboarding
                 </h2>
-                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-base mt-2" style={{ color: 'var(--text-secondary)' }}>
                     Add new companies and suppliers to the Spanner Graph knowledge base
                 </p>
             </div>
@@ -159,8 +159,8 @@ export default function Onboarding() {
                             </div>
                         </div>
 
-                        <button type="submit" className="btn-primary w-full justify-center" disabled={!name || loading}>
-                            {loading ? <div className="spinner" /> : <><Plus size={16} /> Add {entityType} to Graph</>}
+                        <button type="submit" className="btn-primary w-full justify-center py-4 text-lg mt-4" disabled={!name || loading}>
+                            {loading ? <div className="spinner" /> : <><Plus size={20} /> Add {entityType} to Graph</>}
                         </button>
                     </form>
                 </div>

@@ -74,6 +74,58 @@ NexGen Pro X1: $45M annual revenue — MCU, WiFi, battery, OLED, PCB, sensor, ho
 NexGen IoT Hub: $28M annual revenue — MCU, WiFi, battery, PCB, housing
 NexGen Sense: $18M annual revenue — sensor, MCU, PCB, battery, housing
 NexGen Display: $12M annual revenue — OLED, MCU, WiFi, PCB, housing
+
+=== RISK ASSESSMENT FRAMEWORK ===
+Signal Categories & Expected Response Times:
+  - Geopolitical (sanctions, tariffs, trade wars): Response within 4 hours.
+    Typical impact: supplier access restrictions, customs holds, trade route changes.
+    Mitigation: activate alternate suppliers, pre-position inventory, engage legal counsel.
+  - Weather (earthquakes, floods, typhoons, wildfires): Response within 2 hours.
+    Typical impact: facility shutdowns, logistics route disruptions, workforce displacement.
+    Mitigation: reroute shipments, activate safety stock, contact affected suppliers.
+  - Financial (bankruptcies, recessions, credit crises): Response within 8 hours.
+    Typical impact: supplier insolvency, payment disruptions, credit line freezes.
+    Mitigation: qualify backup suppliers, adjust payment terms, accelerate receivables.
+  - Quality (recalls, defects, contamination): Response within 1 hour.
+    Typical impact: production halts, product recalls, reputation damage, regulatory scrutiny.
+    Mitigation: quarantine inventory, issue customer advisories, initiate root cause analysis.
+  - Logistics (port closures, shipping delays, strikes): Response within 4 hours.
+    Typical impact: delivery delays, container shortages, demurrage costs.
+    Mitigation: reroute shipments, switch transport modes, expedite critical orders.
+  - Cyber (ransomware, data breaches, IT outages): Response within 30 minutes.
+    Typical impact: system downtime, data loss, supply chain visibility gaps.
+    Mitigation: activate incident response, switch to manual processes, isolate affected systems.
+  - Pandemic (disease outbreaks, quarantines, lockdowns): Response within 6 hours.
+    Typical impact: workforce shortages, factory shutdowns, border closures.
+    Mitigation: enable remote operations, diversify geographic sourcing, build strategic reserves.
+
+Severity Scoring Matrix:
+  1-2: Minimal — localized event, no supply chain disruption expected, monitor only.
+  3-4: Low — minor delays possible, single supplier affected, existing buffers sufficient.
+  5-6: Moderate — regional impact, multiple suppliers at risk, proactive mitigation needed.
+  7-8: High — multi-region cascade, critical components threatened, executive awareness required.
+  9-10: Critical — industry-wide disruption, revenue-at-risk exceeds thresholds, war room activation.
+
+=== RESPONSE PROTOCOLS ===
+Escalation Tiers:
+  - Tier 1 (Severity 1-3): Automated monitoring, weekly digest to supply chain team.
+  - Tier 2 (Severity 4-6): Active monitoring, daily status updates, mitigation plan required.
+  - Tier 3 (Severity 7-8): War room activation, 4-hour update cadence, VP-level briefing.
+  - Tier 4 (Severity 9-10): Executive escalation, continuous monitoring, board-level communication.
+
+Communication Templates:
+  - Supplier inquiry: Request status update, capacity impact, estimated recovery timeline.
+  - Customer advisory: Potential delay notification, alternative fulfillment options.
+  - Executive brief: Revenue impact summary, mitigation status, resource requirements.
+  - Board update: Strategic risk assessment, portfolio exposure, long-term resilience plan.
+
+=== COMPLIANCE & REGULATORY REQUIREMENTS ===
+  - All mitigation actions must comply with applicable trade regulations and sanctions lists.
+  - Supplier qualification changes require documented risk assessment and approval workflow.
+  - Expedited shipping authorizations above $50,000 require finance director sign-off.
+  - Any single-source component must have a documented dual-source qualification roadmap.
+  - Revenue-at-risk calculations must use calibrated severity and duration models, not raw sums.
+  - Audit trail required for all automated actions — log signal, classification, actions, approvals.
 """
 
 # ── Cache Manager ────────────────────────────────────────────────────

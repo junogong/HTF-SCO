@@ -66,9 +66,10 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
     };
 
     return (
-        <div className="flex gap-6 h-full items-start">
+        <div className={`flex gap-6 w-full h-full justify-center ${disruptionHistory.length > 0 ? 'items-start' : 'items-center min-h-[calc(100vh-120px)]'}`}>
             {/* Main Content Area */}
-            <div className={`space-y-6 animate-fade-in ${disruptionHistory.length > 0 ? 'flex-1 min-w-0' : 'w-full'}`}>
+            <div className={`space-y-6 animate-fade-in ${disruptionHistory.length > 0 ? 'flex-1 min-w-0' : 'w-full'}`}
+                style={{ maxWidth: disruptionHistory.length > 0 ? undefined : '800px', margin: disruptionHistory.length > 0 ? undefined : '0 auto' }}>
                 {/* Header */}
                 <div>
                     <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
@@ -119,11 +120,11 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                     </div>
 
                     <button
-                        className="btn-primary w-full justify-center"
+                        className={`btn-primary w-full justify-center ${disruptionHistory.length > 0 ? '' : 'py-4 text-lg'}`}
                         onClick={analyze}
                         disabled={!signal.trim() || loading}
                     >
-                        {loading ? <div className="spinner" /> : <><Send size={16} /> Analyze Disruption</>}
+                        {loading ? <div className="spinner" /> : <><Send size={disruptionHistory.length > 0 ? 16 : 20} /> Analyze Disruption</>}
                     </button>
 
                     {/* Divider */}

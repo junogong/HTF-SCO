@@ -61,10 +61,24 @@ export default function App() {
   };
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen w-full">
       <Sidebar activePage={activePage} onNavigate={setActivePage} />
-      <main style={{ marginLeft: '240px', padding: '32px', flex: 1, position: 'relative', zIndex: 1 }}>
-        {renderPage()}
+      <main style={{
+        paddingLeft: '240px', // Offset for the fixed left sidebar
+        paddingRight: '240px', // Symmetric offset on the right for perfect center
+        paddingTop: '32px',
+        paddingBottom: '32px',
+        width: '100%',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        position: 'relative',
+        zIndex: 1
+      }}>
+        <div className="w-full max-w-[1200px]">
+          {renderPage()}
+        </div>
       </main>
     </div>
   );

@@ -57,7 +57,7 @@ export default function SafetyDashboard({ disruptionHistory = [] }) {
     ];
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="flex flex-col justify-center min-h-[calc(100vh-120px)] space-y-6 animate-fade-in w-full" style={{ maxWidth: '1100px', margin: '0 auto' }}>
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -85,8 +85,10 @@ export default function SafetyDashboard({ disruptionHistory = [] }) {
                         <svg width="120" height="120" viewBox="0 0 120 120">
                             <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
                             <circle cx="60" cy="60" r="50" fill="none" stroke={trustColor} strokeWidth="12"
-                                strokeDasharray={`${(trustScore / 100) * 314} 314`}
-                                strokeDashoffset="78.5" strokeLinecap="round"
+                                pathLength="100"
+                                strokeDasharray={`${trustScore} 100`}
+                                strokeLinecap="round"
+                                transform="rotate(-90 60 60)"
                                 style={{ transition: 'stroke-dasharray 1s ease' }} />
                         </svg>
                         <div className="absolute text-center">
