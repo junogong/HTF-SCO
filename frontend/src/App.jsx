@@ -55,7 +55,7 @@ export default function App() {
         onDismissAction={handleDismissAction}
       />;
       case 'onboarding': return <Onboarding />;
-      case 'safety': return <SafetyDashboard />;
+      case 'safety': return <SafetyDashboard disruptionHistory={disruptionHistory} />;
       default: return <Dashboard />;
     }
   };

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck, AlertTriangle, Brain, GitMerge, Activity, CheckCircle, XCircle, Zap, Eye, BarChart2 } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, Brain, GitMerge, Activity, CheckCircle, XCircle, Zap, Eye, BarChart2, Clock, FileText, ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
 import api from '../api/client';
 
 const PRIORITY_COLOR = { CRITICAL: '#ef4444', HIGH: '#f97316', MEDIUM: '#eab308', LOW: '#22c55e' };
 
-export default function SafetyDashboard() {
+export default function SafetyDashboard({ disruptionHistory = [] }) {
     const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState('guardrails');
+    const [expandedChecks, setExpandedChecks] = useState(new Set());
 
     useEffect(() => {
         fetchReport();
@@ -24,6 +25,14 @@ export default function SafetyDashboard() {
         setLoading(false);
     };
 
+    const toggleCheck = (i) => {
+        setExpandedChecks(prev => {
+            const next = new Set(prev);
+            next.has(i) ? next.delete(i) : next.add(i);
+            return next;
+        });
+    };
+
     if (loading) return (
         <div className="flex items-center justify-center h-64">
             <div className="spinner" style={{ width: 40, height: 40 }} />
@@ -32,31 +41,43 @@ export default function SafetyDashboard() {
 
     if (!report) return null;
 
-    const { guardrails, bias_analysis, hallucination_report, graph_stats } = report;
+    const { guardrails, bias_analysis, hallucination_report, graph_stats, reasoning_trace } = report;
     const trustScore = guardrails?.trust_score ?? 0;
     const trustColor = trustScore >= 80 ? '#22c55e' : trustScore >= 60 ? '#eab308' : '#ef4444';
+    const hitlRequired = guardrails?.hitl_required ?? false;
+    const hitlThreshold = guardrails?.hitl_threshold ?? 1000000;
 
     const tabs = [
         { id: 'guardrails', label: 'Guardrail Checks', icon: ShieldCheck },
+        { id: 'trace', label: 'Reasoning Trace', icon: Brain },
         { id: 'hallucination', label: 'Hallucination Log', icon: Eye },
         { id: 'debate', label: 'Agent Debate', icon: GitMerge },
+        { id: 'audit', label: 'Audit Trail', icon: FileText },
         { id: 'graph', label: 'Graph Vitals', icon: Activity },
     ];
 
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
-            <div>
-                <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                    Responsible AI Dashboard
-                </h2>
-                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    Internal vitals — explainability, safety checks, and agent bias monitoring
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                        Responsible AI Dashboard
+                    </h2>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                        Explainability • Safety Checks • Bias Monitoring • Decision Audit Trail
+                    </p>
+                </div>
+                {guardrails?.timestamp && (
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono" style={{ color: 'var(--text-muted)' }}>
+                        <Clock size={12} />
+                        Last validated: {new Date(guardrails.timestamp).toLocaleString()}
+                    </div>
+                )}
             </div>
 
             {/* KPI Row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 {/* Trust Score Gauge */}
                 <div className="glass-card col-span-2 flex flex-col items-center justify-center py-6">
                     <p className="text-xs uppercase tracking-widest mb-3" style={{ color: 'var(--text-muted)' }}>AI Trust Score</p>
@@ -90,6 +111,21 @@ export default function SafetyDashboard() {
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         {hallucination_report?.clean ? '✓ Clean' : 'intercepted'}
+                    </p>
+                </div>
+
+                {/* HITL Status */}
+                <div className="glass-card flex flex-col justify-center items-center py-6 gap-1"
+                    style={{ borderColor: hitlRequired ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.2)' }}>
+                    <p className="text-xs uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>HITL Override</p>
+                    {hitlRequired
+                        ? <Lock size={28} className="text-red-400" />
+                        : <Unlock size={28} className="text-emerald-400" />}
+                    <p className="text-xs font-bold" style={{ color: hitlRequired ? '#ef4444' : '#22c55e' }}>
+                        {hitlRequired ? 'REQUIRED' : 'Not Required'}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                        Threshold: ${(hitlThreshold / 1e6).toFixed(1)}M
                     </p>
                 </div>
             </div>
@@ -138,37 +174,100 @@ export default function SafetyDashboard() {
                 ))}
             </div>
 
-            {/* Tab Content */}
+            {/* ═══ GUARDRAILS TAB ═══ */}
             {tab === 'guardrails' && (
                 <div className="glass-card space-y-3">
                     <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
                         Deterministic Fact-Check Results
                     </h3>
                     {(guardrails?.checks ?? []).map((check, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl"
-                            style={{ background: 'var(--bg-secondary)' }}>
-                            {check.passed
-                                ? <CheckCircle size={18} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-                                : <XCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{check.check}</p>
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
-                                        style={{
-                                            background: check.severity === 'critical' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)',
-                                            color: check.severity === 'critical' ? '#ef4444' : '#eab308',
-                                        }}>{check.severity}</span>
+                        <div key={i} className="rounded-xl overflow-hidden" style={{ background: 'var(--bg-secondary)' }}>
+                            <div className="flex items-start gap-3 p-3 cursor-pointer" onClick={() => toggleCheck(i)}>
+                                {check.passed
+                                    ? <CheckCircle size={18} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+                                    : <XCircle size={18} className="text-red-400 flex-shrink-0 mt-0.5" />}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{check.check}</p>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
+                                            style={{
+                                                background: check.severity === 'critical' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)',
+                                                color: check.severity === 'critical' ? '#ef4444' : '#eab308',
+                                            }}>{check.severity}</span>
+                                    </div>
+                                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{check.details}</p>
+                                    <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--text-muted)' }}>
+                                        Source: {check.source}
+                                    </p>
                                 </div>
-                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{check.details}</p>
-                                <p className="text-[10px] mt-1 font-mono" style={{ color: 'var(--text-muted)' }}>
-                                    Source: {check.source}
-                                </p>
+                                <div className="flex-shrink-0 mt-1">
+                                    {expandedChecks.has(i)
+                                        ? <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />
+                                        : <ChevronRight size={14} style={{ color: 'var(--text-muted)' }} />}
+                                </div>
                             </div>
+                            {/* Expanded Reasoning Trace */}
+                            {expandedChecks.has(i) && check.reasoning && (
+                                <div className="px-3 pb-3 pt-0 ml-8 mr-3">
+                                    <div className="p-3 rounded-lg text-xs font-mono leading-relaxed"
+                                        style={{ background: 'rgba(0,0,0,0.3)', color: 'var(--text-secondary)', borderLeft: '2px solid #6366f1' }}>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-1">Reasoning Trace</p>
+                                        {check.reasoning}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
             )}
 
+            {/* ═══ REASONING TRACE TAB ═══ */}
+            {tab === 'trace' && (
+                <div className="glass-card">
+                    <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+                        AI Decision Pipeline — Reasoning Trace
+                    </h3>
+                    <div className="space-y-0">
+                        {(reasoning_trace ?? []).map((step, i) => (
+                            <div key={i} className="flex gap-3 relative">
+                                {/* Vertical connector line */}
+                                {i < (reasoning_trace?.length ?? 0) - 1 && (
+                                    <div className="absolute left-[15px] top-8 w-[2px] h-[calc(100%-8px)]"
+                                        style={{ background: step.status === 'completed' ? '#6366f1' : 'rgba(255,255,255,0.08)' }} />
+                                )}
+                                {/* Step circle */}
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 z-10"
+                                    style={{
+                                        background: step.status === 'completed' ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)',
+                                        border: `2px solid ${step.status === 'completed' ? '#6366f1' : 'rgba(255,255,255,0.1)'}`,
+                                        color: step.status === 'completed' ? '#a5b4fc' : 'var(--text-muted)',
+                                    }}>
+                                    {step.step}
+                                </div>
+                                <div className="pb-5 flex-1 min-w-0">
+                                    <p className="text-sm font-bold" style={{
+                                        color: step.status === 'completed' ? 'var(--text-primary)' : 'var(--text-muted)'
+                                    }}>
+                                        {step.name}
+                                        <span className="ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
+                                            style={{
+                                                background: step.status === 'completed' ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
+                                                color: step.status === 'completed' ? '#22c55e' : 'var(--text-muted)',
+                                            }}>
+                                            {step.status}
+                                        </span>
+                                    </p>
+                                    <p className="text-xs mt-1 font-mono" style={{ color: 'var(--text-muted)' }}>
+                                        {step.detail}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ═══ HALLUCINATION TAB ═══ */}
             {tab === 'hallucination' && (
                 <div className="glass-card">
                     <div className="flex items-center justify-between mb-4">
@@ -215,9 +314,9 @@ export default function SafetyDashboard() {
                 </div>
             )}
 
+            {/* ═══ DEBATE TAB ═══ */}
             {tab === 'debate' && bias_analysis && (
                 <div className="space-y-4">
-                    {/* Side-by-side agent cards */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="glass-card" style={{ borderColor: 'rgba(6,182,212,0.3)' }}>
                             <div className="flex items-center gap-2 mb-3">
@@ -245,7 +344,6 @@ export default function SafetyDashboard() {
                         </div>
                     </div>
 
-                    {/* Divergence bar */}
                     <div className="glass-card">
                         <h4 className="text-sm font-bold mb-3" style={{ color: 'var(--text-muted)' }}>Agent Reasoning Dimensions</h4>
                         <div className="space-y-3">
@@ -272,6 +370,96 @@ export default function SafetyDashboard() {
                 </div>
             )}
 
+            {/* ═══ AUDIT TRAIL TAB ═══ */}
+            {tab === 'audit' && (
+                <div className="glass-card">
+                    <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
+                        Decision Audit Trail
+                    </h3>
+                    {disruptionHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-10 gap-3">
+                            <FileText size={32} style={{ color: 'var(--text-muted)' }} />
+                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                No disruption analyses logged yet. Run an analysis to populate the audit trail.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-[13px]">
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                                        <th className="text-left py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">#</th>
+                                        <th className="text-left py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">Signal / Event</th>
+                                        <th className="text-center py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">Category</th>
+                                        <th className="text-center py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">Severity</th>
+                                        <th className="text-center py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">Trust</th>
+                                        <th className="text-center py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">HITL</th>
+                                        <th className="text-right py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">R@R</th>
+                                        <th className="text-center py-3 px-4 font-bold text-[10px] text-slate-500 uppercase tracking-widest">Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {disruptionHistory.map((entry, i) => {
+                                        const cat = entry.classification?.category ?? '—';
+                                        const sev = entry.classification?.severity ?? '—';
+                                        const trust = entry.guardrails?.trust_score ?? '—';
+                                        const hitl = entry.guardrails?.hitl_required;
+                                        const rar = entry.strategy?.revenue_at_risk ?? 0;
+                                        const source = entry.source === 'wind-tunnel' ? 'Simulation' : 'Analysis';
+
+                                        return (
+                                            <tr key={i} className="transition-colors hover:bg-white/[0.03]"
+                                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                <td className="py-3 px-4 font-mono text-slate-500">{disruptionHistory.length - i}</td>
+                                                <td className="py-3 px-4">
+                                                    <p className="font-medium text-slate-200 truncate max-w-[250px]">
+                                                        {entry.strategy?.name || entry.signal?.slice(0, 50) || 'Disruption event'}
+                                                    </p>
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
+                                                        style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>
+                                                        {cat}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 px-4 text-center font-bold tabular-nums"
+                                                    style={{ color: sev >= 8 ? '#ef4444' : sev >= 5 ? '#f59e0b' : '#22c55e' }}>
+                                                    {sev}/10
+                                                </td>
+                                                <td className="py-3 px-4 text-center font-bold tabular-nums"
+                                                    style={{ color: trust >= 80 ? '#22c55e' : trust >= 60 ? '#eab308' : '#ef4444' }}>
+                                                    {trust !== '—' ? `${trust}%` : '—'}
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    {hitl === true
+                                                        ? <Lock size={14} className="text-red-400 mx-auto" />
+                                                        : hitl === false
+                                                            ? <Unlock size={14} className="text-emerald-400 mx-auto" />
+                                                            : <span className="text-slate-500">—</span>}
+                                                </td>
+                                                <td className="py-3 px-4 text-right font-mono font-bold text-red-400/80">
+                                                    ${(rar / 1e6).toFixed(1)}M
+                                                </td>
+                                                <td className="py-3 px-4 text-center">
+                                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                                        style={{
+                                                            background: source === 'Simulation' ? 'rgba(139,92,246,0.15)' : 'rgba(239,68,68,0.15)',
+                                                            color: source === 'Simulation' ? '#a78bfa' : '#fca5a5',
+                                                        }}>
+                                                        {source}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ═══ GRAPH VITALS TAB ═══ */}
             {tab === 'graph' && graph_stats && (
                 <div className="glass-card">
                     <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>

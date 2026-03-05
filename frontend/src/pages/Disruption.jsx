@@ -11,14 +11,6 @@ const RISK_APPETITES = [
     { value: 'aggressive', label: 'Aggressive', desc: 'Prioritize speed' },
 ];
 
-const SAMPLE_SIGNALS = [
-    "Major earthquake detected near TSMC fabrication facilities in Taiwan, magnitude 7.2",
-    "Monsoon flooding in Gujarat, India disrupting electronic component logistics",
-    "Port of Shanghai congestion: 45+ vessel queue, average delay 12 days",
-    "BYD announces battery cell production line shutdown for 2-week maintenance",
-    "EU imposes new tariffs on Chinese electronic imports, 25% increase effective immediately",
-];
-
 export default function Disruption({ disruptionHistory = [], activeIndex = -1, setActiveIndex, onAddDisruption }) {
     const [signal, setSignal] = useState('');
     const [riskAppetite, setRiskAppetite] = useState('balanced');
@@ -100,20 +92,6 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                             value={signal}
                             onChange={e => setSignal(e.target.value)}
                         />
-                    </div>
-
-                    {/* Quick templates */}
-                    <div className="flex flex-wrap gap-2">
-                        {SAMPLE_SIGNALS.map((s, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setSignal(s)}
-                                className="text-[11px] px-2.5 py-1 rounded-lg transition-colors hover:bg-white/10"
-                                style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
-                            >
-                                {s.substring(0, 50)}…
-                            </button>
-                        ))}
                     </div>
 
                     {/* Risk Appetite Selector */}

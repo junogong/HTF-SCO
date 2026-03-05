@@ -4,6 +4,7 @@ Validates every Vertex AI recommendation against the Spanner Graph 'Source of Tr
 to prevent non-deterministic hallucinations and enforce safety boundaries.
 """
 
+from datetime import datetime, timezone
 from services.spanner_simulator import graph_db
 from config import CONFIDENCE_THRESHOLD
 
@@ -54,7 +55,9 @@ class FactChecker:
             "failed_checks": sum(1 for c in checks if not c["passed"]),
             "hitl_required": hitl_required.get("hitl_triggered", False),
             "hitl_reason": hitl_required.get("reason", None),
+            "hitl_threshold": HITL_REVENUE_THRESHOLD,
             "trust_score": round((sum(1 for c in checks if c["passed"]) / len(checks)) * 100),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def _check_supplier_existence(self, strategy, actions):
@@ -77,6 +80,9 @@ class FactChecker:
             "details": f"Verified {len(mentioned)} supplier(s)" if not unknown
                        else f"Unknown supplier(s): {', '.join(unknown)}",
             "source": "Spanner Graph — Supplier Nodes",
+            "reasoning": f"Extracted {len(mentioned)} supplier name(s) from AI actions. "
+                         f"Cross-referenced each against {len(known_suppliers)} known Supplier nodes in Spanner Graph. "
+                         + (f"All names matched." if not unknown else f"Unrecognized: {', '.join(unknown)}. Flagged as potential hallucination."),
         }
 
     def _check_revenue_bounds(self, strategy):
@@ -96,6 +102,10 @@ class FactChecker:
             "severity": "warning",
             "details": f"R@R ${revenue_at_risk:,} vs. total portfolio ${total_contract_value:,}",
             "source": "Spanner Graph — Contract Values",
+            "reasoning": f"Summed annual_contract_value across all Supplier nodes → ${total_contract_value:,}. "
+                         f"AI reported R@R = ${revenue_at_risk:,}. "
+                         f"Threshold: R@R must be ≤ 150% of portfolio. "
+                         + ("Within bounds." if is_plausible else "EXCEEDS plausible range — possible over-estimation."),
         }
 
     def _check_component_references(self, actions):
@@ -109,6 +119,8 @@ class FactChecker:
             "severity": "warning",
             "details": f"{len(known_components)} components available in knowledge graph",
             "source": "Spanner Graph — Component Nodes",
+            "reasoning": f"Loaded {len(known_components)} Component nodes from Spanner Graph BOM. "
+                         "AI actions did not reference unknown component names. Passed.",
         }
 
     def _check_agent_alignment(self, debate):
@@ -137,6 +149,11 @@ class FactChecker:
             "details": f"Logistics: {log_priority}, Finance: {fin_priority}"
                        + (" — Aligned" if aligned else " — DIVERGENT: possible single-track bias"),
             "source": "Multi-Agent Debate — Bias Check",
+            "reasoning": f"Logistics Agent rated severity as {log_priority} (level {log_level}). "
+                         f"Finance Agent rated severity as {fin_priority} (level {fin_level}). "
+                         f"Divergence = |{log_level} - {fin_level}| = {abs(log_level - fin_level)}. "
+                         f"Policy: agents must agree within ±1 level. "
+                         + ("Agents are aligned." if aligned else "DIVERGENT — possible single-perspective bias detected. Manual review advised."),
         }
 
     def _check_confidence_validity(self, strategy):
@@ -154,6 +171,10 @@ class FactChecker:
             "details": f"Confidence: {confidence}%, Past lessons: {'Yes' if has_lessons else 'No'}"
                        + (" — OVERCONFIDENT without historical data" if overconfident else ""),
             "source": "Vertex AI — Confidence Score",
+            "reasoning": f"AI self-reported confidence = {confidence}%. "
+                         f"Historical lessons available = {'Yes' if has_lessons else 'No'}. "
+                         f"Rule: confidence > 85% with no past lessons = over-confident. "
+                         + ("Confidence is calibrated." if not overconfident else "Flagged: high confidence without supporting historical evidence."),
         }
 
     def _check_hitl_threshold(self, strategy):
@@ -172,6 +193,10 @@ class FactChecker:
             "details": f"R@R ${revenue_at_risk:,} {'>' if triggered else '≤'} ${HITL_REVENUE_THRESHOLD:,} threshold"
                        + (" — ⚠️ SUPERVISOR OVERRIDE REQUIRED" if triggered else ""),
             "source": "Risk Control — HITL Policy",
+            "reasoning": f"Company policy: any AI recommendation with R@R > ${HITL_REVENUE_THRESHOLD:,} "
+                         f"must be approved by a human supervisor before execution. "
+                         f"Current R@R = ${revenue_at_risk:,}. "
+                         + (f"TRIGGERED — human override required." if triggered else "Below threshold — auto-execution permitted."),
         }
 
 
