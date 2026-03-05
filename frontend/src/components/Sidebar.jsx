@@ -4,13 +4,12 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'graph', label: 'Supply Graph', icon: GitBranch },
-    { id: 'disruption', label: 'Disruption Analysis', icon: AlertTriangle },
-    { id: 'stress-test', label: 'Wind Tunnel', icon: Wind },
-    { id: 'actions', label: 'Action Center', icon: CheckSquare },
-
-    { id: 'safety', label: 'Responsible AI', icon: ShieldCheck },
+    { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
+    { id: 'graph', label: 'SUPPLY GRAPH', icon: GitBranch },
+    { id: 'disruption', label: 'DISRUPTION ANALYSIS', icon: AlertTriangle },
+    { id: 'stress-test', label: 'WIND TUNNEL', icon: Wind },
+    { id: 'actions', label: 'ACTION CENTER', icon: CheckSquare },
+    { id: 'safety', label: 'RESPONSIBLE AI', icon: ShieldCheck },
 ];
 
 export default function Sidebar({ activePage, onNavigate, pendingActionsCount }) {
@@ -18,33 +17,28 @@ export default function Sidebar({ activePage, onNavigate, pendingActionsCount })
         <aside
             className="fixed left-0 top-0 h-screen z-50 flex flex-col w-[240px] transition-all"
             style={{
-                background: 'rgba(2, 6, 23, 0.65)',
-                backdropFilter: 'blur(32px)',
-                WebkitBackdropFilter: 'blur(32px)',
-                borderRight: '1px solid rgba(255, 255, 255, 0.05)',
-                boxShadow: '10px 0 30px -10px rgba(0, 0, 0, 0.5)',
+                background: 'var(--bg-primary)',
+                borderRight: '1px solid var(--border)',
             }}
         >
             {/* Logo */}
-            <div className="flex items-center gap-3 px-6 py-8 relative">
-                <div className="absolute bottom-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 relative group"
-                    style={{ background: 'var(--gradient-primary)', boxShadow: '0 4px 20px -2px rgba(99, 102, 241, 0.4)' }}>
-                    <div className="absolute inset-0 rounded-xl bg-white opacity-0 group-hover:opacity-20 transition-opacity" />
-                    <Shield size={20} className="text-white drop-shadow-md" />
+            <div className="flex items-center gap-3 px-6 py-8 relative" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="w-8 h-8 flex items-center justify-center flex-shrink-0 relative"
+                    style={{ background: 'var(--accent-primary-20)', border: '1px solid var(--accent-primary)' }}>
+                    <Shield size={16} className="text-[var(--accent-primary)]" />
                 </div>
                 <div>
-                    <h1 className="text-[15px] font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400">
-                        SCR Agent
+                    <h1 className="text-[16px] font-bold tracking-widest font-mono text-white">
+                        SYS_SCR
                     </h1>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5" style={{ color: 'var(--accent-cyan)' }}>
-                        Control Tower
+                    <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5 font-mono" style={{ color: 'var(--accent-primary)' }}>
+                        [ COMMAND_CENTER ]
                     </p>
                 </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+            <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activePage === item.id;
@@ -53,29 +47,35 @@ export default function Sidebar({ activePage, onNavigate, pendingActionsCount })
                         <button
                             key={item.id}
                             onClick={() => onNavigate(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden group
-                                ${isActive ? 'text-white' : 'hover:bg-white/5 hover:text-slate-200'}
+                            className={`w-full flex items-center gap-3 px-4 py-2 transition-all duration-100 relative group font-mono
+                                ${isActive ? 'text-[var(--bg-primary)]' : 'hover:bg-[var(--bg-secondary)] hover:text-white'}
                             `}
                             style={{
-                                background: isActive ? 'linear-gradient(90deg, rgba(99,102,241,0.15) 0%, transparent 100%)' : 'transparent',
-                                color: isActive ? '#fff' : 'var(--text-secondary)',
-                                border: '1px solid transparent',
-                                borderColor: isActive ? 'rgba(99,102,241,0.2)' : 'transparent',
+                                background: isActive ? 'var(--accent-primary)' : 'transparent',
+                                color: isActive ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                                border: '1px solid',
+                                borderColor: isActive ? 'var(--accent-primary)' : 'transparent',
                             }}
                         >
                             {/* Active pill indicator */}
                             {isActive && (
-                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 rounded-r-full bg-indigo-500 shadow-[0_0_12px_rgba(99,102,241,0.8)]" />
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--bg-primary)] opacity-50" />
                             )}
 
-                            <Icon size={18} className={`flex-shrink-0 transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] text-indigo-400' : 'group-hover:scale-110'}`} />
-                            <span className={`text-[13px] tracking-wide flex-1 text-left transition-all ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                            <Icon size={16} className={`flex-shrink-0 transition-transform duration-100 ${isActive ? 'text-[var(--bg-primary)]' : 'group-hover:text-white'}`} />
+                            <span className={`text-[12px] tracking-widest flex-1 text-left ${isActive ? 'font-bold' : 'font-medium'}`}>
                                 {item.label}
                             </span>
 
                             {/* Notification Badge */}
                             {showBadge && (
-                                <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">
+                                <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold"
+                                    style={{
+                                        background: isActive ? 'var(--bg-primary)' : 'var(--accent-danger)',
+                                        color: isActive ? 'var(--accent-danger)' : 'var(--text-on-accent)',
+                                        border: isActive ? 'none' : '1px solid var(--accent-danger)',
+                                    }}
+                                >
                                     {pendingActionsCount}
                                 </span>
                             )}
@@ -85,17 +85,16 @@ export default function Sidebar({ activePage, onNavigate, pendingActionsCount })
             </nav>
 
             {/* Status indicator */}
-            <div className="p-4 mt-auto">
-                <div className="relative rounded-xl overflow-hidden p-4" style={{ background: 'rgba(16, 185, 129, 0.03)', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent opacity-50" />
+            <div className="p-4 mt-auto border-t" style={{ borderColor: 'var(--border)' }}>
+                <div className="p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                     <div className="relative flex items-center gap-3">
-                        <div className="relative flex w-3 h-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full w-3 h-3 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                        <div className="relative flex w-2 h-2">
+                            <span className="animate-blink absolute inline-flex h-full w-full bg-[var(--accent-primary)] opacity-75"></span>
+                            <span className="relative inline-flex w-2 h-2 bg-[var(--accent-primary)]"></span>
                         </div>
                         <div>
-                            <p className="text-xs font-bold text-white tracking-wide">System Active</p>
-                            <p className="text-[10px] font-medium text-emerald-400/80 mt-0.5">All services online</p>
+                            <p className="text-[11px] font-bold text-white tracking-widest font-mono">STATUS: OK</p>
+                            <p className="text-[9px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>// UPLINK_SECURE</p>
                         </div>
                     </div>
                 </div>

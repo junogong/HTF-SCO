@@ -1,63 +1,62 @@
 export default function KpiCard({ title, value, subtitle, icon: Icon, trend, color = 'blue' }) {
-    const gradients = {
-        blue: 'var(--gradient-primary)',
-        red: 'var(--gradient-danger)',
-        green: 'var(--gradient-success)',
-        amber: 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
-        purple: 'linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)',
+    const accentColors = {
+        blue: 'var(--accent-primary)', // Redirecting 'blue' to the primary green accent
+        green: 'var(--accent-primary)',
+        red: 'var(--accent-danger)',
+        amber: 'var(--accent-warning)',
+        purple: 'var(--accent-primary)', // Or mapped to something else, stick to primary
     };
 
     const trendColors = {
-        up: '#10b981',
-        down: '#ef4444',
-        stable: '#94a3b8',
+        up: 'var(--accent-primary)',
+        down: 'var(--accent-danger)',
+        stable: 'var(--text-secondary)',
     };
 
-    return (
-        <div className="glass-card flex flex-col gap-4 group relative overflow-hidden">
-            {/* Very subtle background glow based on color */}
-            <div
-                className="absolute -top-10 -right-10 w-24 h-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-40"
-                style={{ background: gradients[color] || gradients.blue }}
-            />
+    const mainColor = accentColors[color] || accentColors.blue;
 
+    return (
+        <div className="glass-card flex flex-col gap-4 group">
             <div className="flex items-start justify-between relative z-10">
-                <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
+                <span className="text-[11px] font-bold uppercase tracking-widest font-mono" style={{ color: 'var(--text-secondary)' }}>
                     {title}
                 </span>
                 <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:-rotate-3"
+                    className="w-8 h-8 flex items-center justify-center transition-all duration-100"
                     style={{
-                        background: gradients[color] || gradients.blue,
-                        boxShadow: `0 8px 16px -4px ${color === 'red' ? 'rgba(239,68,68,0.4)' : color === 'green' ? 'rgba(16,185,129,0.4)' : color === 'amber' ? 'rgba(245,158,11,0.4)' : 'rgba(99,102,241,0.4)'}`
+                        background: 'transparent',
+                        border: `1px solid ${mainColor}`,
+                        color: mainColor
                     }}
                 >
-                    {Icon && <Icon size={18} className="text-white drop-shadow-md" />}
+                    {Icon && <Icon size={16} />}
                 </div>
             </div>
             <div className="relative z-10 mt-1">
-                <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black tracking-tight text-white drop-shadow-sm">
+                <div className="flex items-baseline gap-3">
+                    <span className="text-3xl font-bold tracking-tight text-white metric-value">
                         {value}
                     </span>
                     {trend && (
                         <div
-                            className="flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                            className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold font-mono"
                             style={{
-                                background: `${trendColors[trend] || trendColors.stable}20`,
-                                border: `1px solid ${trendColors[trend] || trendColors.stable}40`,
+                                background: 'transparent',
+                                border: `1px solid ${trendColors[trend] || trendColors.stable}`,
                                 color: trendColors[trend] || trendColors.stable
                             }}
                         >
-                            {trend === 'up' ? '↗' : trend === 'down' ? '↘' : '→'}
-                            <span>{trend === 'up' ? 'Inc.' : trend === 'down' ? 'Dec.' : ''}</span>
+                            {trend === 'up' ? '▲' : trend === 'down' ? '▼' : '■'}
+                            <span>{trend === 'up' ? 'INC' : trend === 'down' ? 'DEC' : 'STB'}</span>
                         </div>
                     )}
                 </div>
                 {subtitle && (
-                    <p className="text-xs font-medium mt-2" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
+                    <p className="text-[10px] font-medium mt-2 font-mono uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{subtitle}</p>
                 )}
             </div>
+            {/* Terminal decorative bar at the bottom */}
+            <div className="absolute bottom-0 left-0 h-[2px] bg-white opacity-20 transition-all duration-300 group-hover:opacity-100 group-hover:w-full w-0" style={{ background: mainColor }}></div>
         </div>
     );
 }
