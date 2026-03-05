@@ -23,36 +23,31 @@ export default function App() {
 
   // ── Background Poller for Proactive Agent Workflows ─────────
   useEffect(() => {
-    // Initial delay so we don't hammer the API on first load
-    const timeout = setTimeout(() => {
-      const poll = async () => {
-        try {
-          // Trigger the background scraper
-          const scrapeRes = await api.post('/cron/scrape-finviz');
-          if (scrapeRes.data.auto_analyzed > 0) {
-            // Fetch the actual disruptions
-            const disruptionsRes = await api.get('/cron/auto-disruptions');
-            const newDisruptions = disruptionsRes.data.disruptions || [];
+    const poll = async () => {
+      try {
+        // Trigger the background scraper
+        const scrapeRes = await api.post('/cron/scrape-finviz');
+        if (scrapeRes.data.auto_analyzed > 0) {
+          // Fetch the actual disruptions
+          const disruptionsRes = await api.get('/cron/auto-disruptions');
+          const newDisruptions = disruptionsRes.data.disruptions || [];
 
-            setDisruptionHistory(prev => {
-              const currentIds = new Set(prev.map(d => d.strategy_id || d.strategy?.name));
-              const additions = newDisruptions.filter(d => !currentIds.has(d.strategy_id || d.strategy?.name));
-              // Prepend newest on top
-              return [...additions.reverse(), ...prev];
-            });
-          }
-        } catch (err) {
-          console.error("Background poller error:", err);
+          setDisruptionHistory(prev => {
+            const currentIds = new Set(prev.map(d => d.strategy_id || d.strategy?.name));
+            const additions = newDisruptions.filter(d => !currentIds.has(d.strategy_id || d.strategy?.name));
+            // Prepend newest on top
+            return [...additions.reverse(), ...prev];
+          });
         }
-      };
+      } catch (err) {
+        console.error("Background poller error:", err);
+      }
+    };
 
-      poll();
-      // Poll every 45 seconds thereafter
-      const interval = setInterval(poll, 45000);
-      return () => clearInterval(interval);
-    }, 5000);
-
-    return () => clearTimeout(timeout);
+    poll();
+    // Poll every 1 minute thereafter
+    const interval = setInterval(poll, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   // ── Compute Global Pending Actions ──────────────────────────

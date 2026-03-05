@@ -29,10 +29,14 @@ def scrape_finviz_news():
         
         for link in news_links:
             text = link.get_text(strip=True)
-            if text and text not in headlines:
-                headlines.append(text)
+            # Only include Bloomberg headlines as requested
+            if "(Bloomberg)" in text:
+                # Clean up the (Bloomberg) tag for cleaner analysis
+                clean_text = text.replace("(Bloomberg)", "").strip()
+                if clean_text and clean_text not in headlines:
+                    headlines.append(clean_text)
                 
-        logger.info(f"Successfully scraped {len(headlines)} headlines from Finviz.")
+        logger.info(f"Successfully scraped {len(headlines)} Bloomberg headlines from Finviz.")
         return headlines
         
     except Exception as e:

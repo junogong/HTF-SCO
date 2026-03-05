@@ -5,6 +5,7 @@ from modules.classifier import classifier as high_speed_classifier
 from modules.orchestrator import analyze_disruption
 import logging
 import time
+import threading
 
 cron_bp = Blueprint('cron', __name__)
 logger = logging.getLogger(__name__)
@@ -17,31 +18,58 @@ _auto_disruptions = []         # Full orchestrator results for high-severity sig
 AUTO_ANALYZE_THRESHOLD = 6
 
 
+def _run_async_analysis(text, classification):
+    """Heavy AI orchestration runs in a background thread to keep UI responsive."""
+    try:
+        # Cross-run deduplication (check last 20 disruptions by exact headline)
+        recent_texts = [d.get("scraped_headline", d.get("signal", "")) for d in _auto_disruptions[-20:]]
+        
+        # Simplified deduplication as requested — no semantic similarity check
+        if text in recent_texts:
+            logger.info(f"   ⏭️  [Async] Skipped exact duplicate: {text[:60]}...")
+            ingest_signal(text, signal_type="news")
+            return
+
+        logger.info(f"   🚨 [Async] Starting deep analysis: {text[:60]}...")
+        result = analyze_disruption(text)
+        result["source"] = "finviz-auto"
+        result["scraped_headline"] = text
+        
+        _auto_disruptions.append(result)
+        # Keep only last 30 disruptions
+        if len(_auto_disruptions) > 30:
+            _auto_disruptions[:] = _auto_disruptions[-30:]
+            
+        logger.info(f"   ✅ [Async] Analysis complete: ${result['strategy']['revenue_at_risk']:,} at risk")
+    except Exception as e:
+        logger.error(f"   ❌ [Async] Orchestrator failed for '{text[:40]}': {e}")
+
+
 @cron_bp.route('/scrape-finviz', methods=['POST'])
 def cron_scrape_finviz():
     """
-    Cron endpoint triggered by Google Cloud Scheduler (or manually).
-    1. Scrapes Finviz news headlines
-    2. Classifies each with the HighSpeedClassifier
-    3. High-severity signals automatically run through the full orchestrator
-    4. Results are stored in memory for the Dashboard to fetch
+    Cron endpoint triggered by Scheduler.
+    Now offloads heavy analysis to background threads for instant UI response.
     """
     logger.info("Cron triggered: /api/cron/scrape-finviz")
     
-    # 1. Scrape headlines
     headlines = scrape_finviz_news()
     if not headlines:
         return jsonify({"status": "error", "message": "Failed to scrape any headlines"}), 500
         
-    # Cap processing to top 20 to avoid blowing up the API quota in one run
     headlines_to_process = headlines[:20]
-    
     classified_signals = []
-    new_disruptions = []
+    processed_in_batch = set() # Batch-level deduplication
+    threads_started = 0
     
-    # 2. Classify each headline with the HighSpeedClassifier
     for text in headlines_to_process:
         try:
+            # Batch-level deduplication (exact or near-exact match in this run)
+            text_norm = text.lower().strip()
+            if any(text_norm in p or p in text_norm for p in processed_in_batch):
+                continue
+            processed_in_batch.add(text_norm)
+
             classification = high_speed_classifier.classify(text)
             
             signal_entry = {
@@ -57,62 +85,30 @@ def cron_scrape_finviz():
             }
             classified_signals.append(signal_entry)
             
-            # 3. If severity >= threshold AND supply-chain related, run full orchestrator
+            # High-severity signals trigger background analysis
             if classification.get("severity", 0) >= AUTO_ANALYZE_THRESHOLD and classification.get("category") != "general":
-                
-                # Check for duplicates first to avoid redundant analysis
-                recent_texts = [d.get("scraped_headline", d.get("signal", "")) for d in _auto_disruptions[-8:]]
-                is_duplicate = high_speed_classifier.is_duplicate_event(text, recent_texts)
-                
-                if is_duplicate:
-                    logger.info(f"   ⏭️  Skipped duplicate event (sev {classification['severity']}): {text[:60]}...")
-                    # Still ingest it for graph context, but don't alarm anyone
-                    try:
-                        ingest_signal(text, signal_type="news")
-                    except Exception as e:
-                        logger.error(f"   Error ingesting duplicate headline '{text[:40]}': {e}")
-                else:
-                    logger.info(f"   🚨 High-severity signal detected (sev {classification['severity']}): {text[:60]}...")
-                    try:
-                        result = analyze_disruption(text)
-                        result["source"] = "finviz-auto"
-                        result["scraped_headline"] = text
-                        new_disruptions.append(result)
-                        logger.info(f"   ✅ Auto-analyzed: Revenue-at-Risk ${result['strategy']['revenue_at_risk']:,}")
-                    except Exception as e:
-                        logger.error(f"   ❌ Orchestrator failed for '{text[:40]}': {e}")
+                thread = threading.Thread(target=_run_async_analysis, args=(text, classification))
+                thread.daemon = True
+                thread.start()
+                threads_started += 1
             else:
-                # Still ingest low-severity signals into the graph for context
-                try:
-                    ingest_signal(text, signal_type="news")
-                except Exception as e:
-                    logger.error(f"   Error ingesting headline '{text[:40]}': {e}")
+                # Still ingest for context
+                ingest_signal(text, signal_type="news")
 
         except Exception as e:
-            logger.error(f"Error classifying headline '{text[:40]}': {e}")
+            logger.error(f"Error processing headline '{text[:40]}': {e}")
             continue
     
-    # 4. Store results in memory for Dashboard polling
     _scraped_signals.extend(classified_signals)
-    # Keep only last 100 signals
     if len(_scraped_signals) > 100:
         _scraped_signals[:] = _scraped_signals[-100:]
-    
-    _auto_disruptions.extend(new_disruptions)
-    # Keep only last 20 disruptions
-    if len(_auto_disruptions) > 20:
-        _auto_disruptions[:] = _auto_disruptions[-20:]
     
     return jsonify({
         "status": "success",
         "scraped_total": len(headlines),
         "processed": len(headlines_to_process),
-        "classified": len(classified_signals),
-        "auto_analyzed": len(new_disruptions),
-        "high_severity_signals": [
-            {"text": s["text"][:80], "category": s["category"], "severity": s["severity"]}
-            for s in classified_signals if s["severity"] >= AUTO_ANALYZE_THRESHOLD
-        ],
+        "auto_analyzed_started": threads_started,
+        "message": "Scrape complete. Analysis continuing in background." if threads_started > 0 else "Scrape complete."
     })
 
 

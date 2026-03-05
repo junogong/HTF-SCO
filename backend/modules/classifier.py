@@ -7,6 +7,7 @@ keyword classifier if the fine-tuned model is unavailable.
 import json
 import logging
 import os
+from config import USE_REAL_VERTEX
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,6 @@ class HighSpeedClassifier:
         if self._initialized:
             return
 
-        from config import USE_REAL_VERTEX
         if not USE_REAL_VERTEX:
             logger.info("⚡ Classifier: simulator mode — using keyword fallback")
             self._initialized = True
