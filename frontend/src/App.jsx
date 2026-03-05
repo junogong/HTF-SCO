@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import SupplyGraph from './pages/SupplyGraph';
 import Disruption from './pages/Disruption';
 import ActionCenter from './pages/ActionCenter';
+import api from './api/client';
 
 import SafetyDashboard from './pages/SafetyDashboard';
 import StressTest from './pages/StressTest';
@@ -19,6 +20,47 @@ export default function App() {
   // Wind Tunnel persisted state
   const [stressTestResult, setStressTestResult] = useState(null);
   const [acceptedScenarios, setAcceptedScenarios] = useState(new Set());
+
+  // ── Background Poller for Proactive Agent Workflows ─────────
+  useEffect(() => {
+    // Initial delay so we don't hammer the API on first load
+    const timeout = setTimeout(() => {
+      const poll = async () => {
+        try {
+          // Trigger the background scraper
+          const scrapeRes = await api.post('/cron/scrape-finviz');
+          if (scrapeRes.data.auto_analyzed > 0) {
+            // Fetch the actual disruptions
+            const disruptionsRes = await api.get('/cron/auto-disruptions');
+            const newDisruptions = disruptionsRes.data.disruptions || [];
+
+            setDisruptionHistory(prev => {
+              const currentIds = new Set(prev.map(d => d.strategy_id || d.strategy?.name));
+              const additions = newDisruptions.filter(d => !currentIds.has(d.strategy_id || d.strategy?.name));
+              // Prepend newest on top
+              return [...additions.reverse(), ...prev];
+            });
+          }
+        } catch (err) {
+          console.error("Background poller error:", err);
+        }
+      };
+
+      poll();
+      // Poll every 45 seconds thereafter
+      const interval = setInterval(poll, 45000);
+      return () => clearInterval(interval);
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // ── Compute Global Pending Actions ──────────────────────────
+  const pendingActionsCount = disruptionHistory.reduce((count, disruption) => {
+    const actions = disruption.actions || [];
+    const pendingForDisruption = actions.filter(a => !dismissedActionIds.has(a.id)).length;
+    return count + pendingForDisruption;
+  }, 0);
 
   const handleAddDisruption = (result) => {
     setDisruptionHistory(prev => [result, ...prev]);
@@ -68,6 +110,7 @@ export default function App() {
       />;
       case 'actions': return <ActionCenter
         analysisResult={activeResult}
+        disruptionHistory={disruptionHistory}
         dismissedActionIds={dismissedActionIds}
         onDismissAction={handleDismissAction}
       />;
@@ -79,7 +122,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen w-full">
-      <Sidebar activePage={activePage} onNavigate={setActivePage} />
+      <Sidebar activePage={activePage} onNavigate={setActivePage} pendingActionsCount={pendingActionsCount} />
       <main style={{
         paddingLeft: '240px', // Offset for the fixed left sidebar
         paddingRight: '240px', // Symmetric offset on the right for perfect center

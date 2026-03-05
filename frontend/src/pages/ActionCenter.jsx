@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
     Mail, Settings, Package, AlertTriangle, Check, X,
-    ChevronDown, ChevronUp, MessageSquare
+    ChevronDown, ChevronUp, MessageSquare, Radio
 } from 'lucide-react';
 import StarRating from '../components/StarRating';
 import api from '../api/client';
@@ -20,25 +20,39 @@ const ACTION_COLORS = {
     executive_escalation: '#ef4444',
 };
 
-export default function ActionCenter({ analysisResult, dismissedActionIds = new Set(), onDismissAction }) {
+export default function ActionCenter({ disruptionHistory = [], dismissedActionIds = new Set(), onDismissAction }) {
     const [expandedEmail, setExpandedEmail] = useState(null);
     const [rating, setRating] = useState(0);
     const [feedback, setFeedback] = useState('');
     const [actualOutcome, setActualOutcome] = useState('');
     const [feedbackSent, setFeedbackSent] = useState(false);
+    const [ratedActionId, setRatedActionId] = useState(null);
 
-    // Derive visible actions — filter out permanently dismissed ones
-    const allActions = analysisResult?.actions || [];
-    const actions = allActions.filter(a => !dismissedActionIds.has(a.id));
+    // Derive visible actions by flattening from all disruptions in history
+    const actions = [];
+    for (const disruption of disruptionHistory) {
+        const dActions = disruption.actions || [];
+        for (const a of dActions) {
+            if (!dismissedActionIds.has(a.id)) {
+                actions.push({
+                    ...a,
+                    disruptionName: disruption.strategy?.name || disruption.classification?.category || 'Disruption Event',
+                    strategyId: disruption.strategy_id || 'unknown',
+                    lowConfidence: disruption.strategy?.requires_manual_review
+                });
+            }
+        }
+    }
 
-    // Reset UI state when the active disruption changes
+    // Reset UI state when navigating
     useEffect(() => {
         setExpandedEmail(null);
         setFeedbackSent(false);
         setRating(0);
         setFeedback('');
         setActualOutcome('');
-    }, [analysisResult]);
+        setRatedActionId(null);
+    }, [disruptionHistory.length]);
 
     const handleApprove = async (actionId) => {
         try {
@@ -58,22 +72,22 @@ export default function ActionCenter({ analysisResult, dismissedActionIds = new 
         }
     };
 
-    const submitFeedback = async () => {
+    const submitFeedback = async (actionId, strategyId) => {
         if (!rating) return;
         try {
             await api.post('/feedback', {
-                strategy_id: analysisResult?.strategy_id || 'unknown',
+                strategy_id: strategyId,
+                action_id: actionId,
                 rating,
                 comment: feedback,
                 actual_outcome: actualOutcome || undefined,
             });
             setFeedbackSent(true);
+            setRatedActionId(actionId);
         } catch (err) {
             console.error(err);
         }
     };
-
-    const lowConfidence = analysisResult?.strategy?.requires_manual_review;
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -88,9 +102,10 @@ export default function ActionCenter({ analysisResult, dismissedActionIds = new 
 
             {!actions.length && (
                 <div className="glass-card text-center py-16">
-                    <Settings size={40} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
+                    <Check size={40} className="mx-auto mb-3 opacity-30 text-emerald-500" />
+                    <h3 className="text-lg font-bold text-white mb-1">You're all caught up!</h3>
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                        No pending actions. Run a disruption analysis first.
+                        No pending actions require your attention across the supply chain.
                     </p>
                 </div>
             )}
@@ -104,22 +119,30 @@ export default function ActionCenter({ analysisResult, dismissedActionIds = new 
                     return (
                         <div
                             key={action.id}
-                            className="glass-card transition-all"
+                            className="glass-card transition-all relative overflow-hidden group"
                             style={{
-                                borderColor: lowConfidence ? 'rgba(245, 158, 11, 0.4)' : undefined,
-                                background: lowConfidence ? 'rgba(245, 158, 11, 0.04)' : undefined,
+                                borderColor: action.lowConfidence ? 'rgba(245, 158, 11, 0.4)' : undefined,
+                                background: action.lowConfidence ? 'rgba(245, 158, 11, 0.04)' : undefined,
                             }}
                         >
+                            {/* Context banner across the top */}
+                            <div className="absolute top-0 left-0 right-0 px-4 py-1.5 text-[10px] font-bold tracking-wider flex items-center gap-2"
+                                style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <Radio size={10} className="text-indigo-400" />
+                                <span style={{ color: 'var(--text-muted)' }}>TRIGGERED BY:</span>
+                                <span className="text-slate-300 truncate">{action.disruptionName}</span>
+                            </div>
+
                             {/* Low confidence banner */}
-                            {lowConfidence && (
-                                <div className="flex items-center gap-2 mb-3 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            {action.lowConfidence && (
+                                <div className="flex items-center gap-2 mt-7 mb-3 px-3 py-1.5 rounded-lg text-xs font-semibold"
                                     style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b' }}>
                                     <AlertTriangle size={12} />
                                     Manual Review Required — Confidence below 70%
                                 </div>
                             )}
 
-                            <div className="flex items-start gap-4">
+                            <div className={`flex items-start gap-4 ${!action.lowConfidence ? 'mt-8' : ''}`}>
                                 {/* Icon */}
                                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                                     style={{ background: `${color}15` }}>
@@ -164,6 +187,14 @@ export default function ActionCenter({ analysisResult, dismissedActionIds = new 
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Inline Feedback section for this specific action context if rated */}
+                                    {feedbackSent && ratedActionId === action.id && (
+                                        <div className="mt-3 p-3 rounded-lg flex items-center gap-2 animate-fade-in" style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                            <Check size={14} className="text-emerald-400" />
+                                            <span className="text-[11px] font-semibold text-emerald-400">Feedback recorded to Reflection Engine</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Action buttons */}
@@ -181,58 +212,13 @@ export default function ActionCenter({ analysisResult, dismissedActionIds = new 
                 })}
             </div>
 
-            {/* Feedback section */}
+            {/* Global Context Feedback Note */}
             {actions.length > 0 && (
-                <div className="glass-card">
-                    <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-muted)' }}>
-                        Strategy Feedback
-                    </h3>
-
-                    {feedbackSent ? (
-                        <div className="text-center py-6 animate-fade-in">
-                            <Check size={32} className="mx-auto mb-2 text-emerald-400" />
-                            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Feedback recorded!</p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                                Your input improves future AI recommendations via the Reflection Engine.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                    Rate this strategy
-                                </label>
-                                <StarRating value={rating} onChange={setRating} size={28} />
-                            </div>
-                            <div>
-                                <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                    <MessageSquare size={12} className="inline mr-1" />Comment (optional)
-                                </label>
-                                <textarea
-                                    className="input-field"
-                                    rows={2}
-                                    placeholder="What worked well? What could be improved?"
-                                    value={feedback}
-                                    onChange={e => setFeedback(e.target.value)}
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-medium block mb-2" style={{ color: 'var(--text-secondary)' }}>
-                                    Actual Outcome (optional — powers the Reflection Engine)
-                                </label>
-                                <textarea
-                                    className="input-field"
-                                    rows={2}
-                                    placeholder="e.g., 'Rerouting worked but cost 10% more than projected'"
-                                    value={actualOutcome}
-                                    onChange={e => setActualOutcome(e.target.value)}
-                                />
-                            </div>
-                            <button className="btn-primary" onClick={submitFeedback} disabled={!rating}>
-                                Submit Feedback
-                            </button>
-                        </div>
-                    )}
+                <div className="text-center py-4">
+                    <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                        <MessageSquare size={12} className="inline mr-1" />
+                        AI strategy generation is continuously improved by your approval and rejection decisions via the Reflection Engine.
+                    </p>
                 </div>
             )}
         </div>

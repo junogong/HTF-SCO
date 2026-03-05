@@ -13,7 +13,7 @@ const navItems = [
     { id: 'safety', label: 'Responsible AI', icon: ShieldCheck },
 ];
 
-export default function Sidebar({ activePage, onNavigate }) {
+export default function Sidebar({ activePage, onNavigate, pendingActionsCount }) {
     return (
         <aside
             className="fixed left-0 top-0 h-screen z-50 flex flex-col w-[240px] transition-all"
@@ -48,6 +48,7 @@ export default function Sidebar({ activePage, onNavigate }) {
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activePage === item.id;
+                    const showBadge = item.id === 'actions' && pendingActionsCount > 0;
                     return (
                         <button
                             key={item.id}
@@ -68,9 +69,16 @@ export default function Sidebar({ activePage, onNavigate }) {
                             )}
 
                             <Icon size={18} className={`flex-shrink-0 transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)] text-indigo-400' : 'group-hover:scale-110'}`} />
-                            <span className={`text-[13px] tracking-wide transition-all ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
+                            <span className={`text-[13px] tracking-wide flex-1 text-left transition-all ${isActive ? 'font-bold text-white' : 'font-medium'}`}>
                                 {item.label}
                             </span>
+
+                            {/* Notification Badge */}
+                            {showBadge && (
+                                <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[10px] font-bold bg-red-500 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse">
+                                    {pendingActionsCount}
+                                </span>
+                            )}
                         </button>
                     );
                 })}

@@ -258,6 +258,59 @@ class HighSpeedClassifier:
             "classifier": "keyword-fallback"
         }
 
+    def is_duplicate_event(self, new_headline: str, recent_headlines: list[str]) -> bool:
+        """
+        Quickly checks if a new headline describes the exact same event as any recent headlines.
+        Returns True if it's a duplicate, False if it's novel.
+        """
+        if not recent_headlines:
+            return False
+            
+        # If in simulator mode or model is unavailable, use strict string matching fallback
+        if not USE_REAL_VERTEX or not self.fast_model:
+            new_lower = new_headline.lower().strip()
+            for h in recent_headlines:
+                if new_lower in h.lower() or h.lower() in new_lower:
+                    return True
+            return False
+            
+        try:
+            prompt = f"""
+You are a supply chain intelligence deduplication engine.
+Your job is to determine if a NEW event is describing the EXACT SAME specific underlying event as any of the RECENT events.
+
+NEW EVENT:
+"{new_headline}"
+
+RECENT EVENTS:
+"""
+            for i, h in enumerate(recent_headlines):
+                prompt += f"{i+1}. \"{h}\"\n"
+            
+            prompt += """
+Are they describing the exact same specific event? 
+(For example: "Port strike in LA" and "Los Angeles port workers walk out" = YES. "Typhoon in Japan" and "Earthquake in Japan" = NO.)
+
+Respond ONLY with YES or NO.
+            """
+            
+            response = self.fast_model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.0, "max_output_tokens": 5}
+            )
+            
+            text = response.text.upper().strip()
+            return "YES" in text
+            
+        except Exception as e:
+            logger.error(f"Error in deduplication check: {e}")
+            # Fall back to simple matching on error
+            new_lower = new_headline.lower().strip()
+            for h in recent_headlines:
+                if new_lower in h.lower() or h.lower() in new_lower:
+                    return True
+            return False
+
 
 # ── Singleton ────────────────────────────────────────────────────────
 classifier = HighSpeedClassifier()

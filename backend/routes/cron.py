@@ -59,15 +59,28 @@ def cron_scrape_finviz():
             
             # 3. If severity >= threshold AND supply-chain related, run full orchestrator
             if classification.get("severity", 0) >= AUTO_ANALYZE_THRESHOLD and classification.get("category") != "general":
-                logger.info(f"   🚨 High-severity signal detected (sev {classification['severity']}): {text[:60]}...")
-                try:
-                    result = analyze_disruption(text)
-                    result["source"] = "finviz-auto"
-                    result["scraped_headline"] = text
-                    new_disruptions.append(result)
-                    logger.info(f"   ✅ Auto-analyzed: Revenue-at-Risk ${result['strategy']['revenue_at_risk']:,}")
-                except Exception as e:
-                    logger.error(f"   ❌ Orchestrator failed for '{text[:40]}': {e}")
+                
+                # Check for duplicates first to avoid redundant analysis
+                recent_texts = [d.get("scraped_headline", d.get("signal", "")) for d in _auto_disruptions[-8:]]
+                is_duplicate = high_speed_classifier.is_duplicate_event(text, recent_texts)
+                
+                if is_duplicate:
+                    logger.info(f"   ⏭️  Skipped duplicate event (sev {classification['severity']}): {text[:60]}...")
+                    # Still ingest it for graph context, but don't alarm anyone
+                    try:
+                        ingest_signal(text, signal_type="news")
+                    except Exception as e:
+                        logger.error(f"   Error ingesting duplicate headline '{text[:40]}': {e}")
+                else:
+                    logger.info(f"   🚨 High-severity signal detected (sev {classification['severity']}): {text[:60]}...")
+                    try:
+                        result = analyze_disruption(text)
+                        result["source"] = "finviz-auto"
+                        result["scraped_headline"] = text
+                        new_disruptions.append(result)
+                        logger.info(f"   ✅ Auto-analyzed: Revenue-at-Risk ${result['strategy']['revenue_at_risk']:,}")
+                    except Exception as e:
+                        logger.error(f"   ❌ Orchestrator failed for '{text[:40]}': {e}")
             else:
                 # Still ingest low-severity signals into the graph for context
                 try:
