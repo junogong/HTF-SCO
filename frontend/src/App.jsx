@@ -25,6 +25,21 @@ export default function App() {
     setActiveIndex(0);
   };
 
+  const handleRemoveDisruption = (indexToRemove) => {
+    setDisruptionHistory(prev => {
+      const updated = prev.filter((_, i) => i !== indexToRemove);
+      // Adjust activeIndex after removal
+      if (updated.length === 0) {
+        setActiveIndex(-1);
+      } else if (activeIndex === indexToRemove) {
+        setActiveIndex(Math.min(indexToRemove, updated.length - 1));
+      } else if (activeIndex > indexToRemove) {
+        setActiveIndex(activeIndex - 1);
+      }
+      return updated;
+    });
+  };
+
   const handleDismissAction = (actionId) => {
     setDismissedActionIds(prev => new Set([...prev, actionId]));
   };
@@ -41,6 +56,7 @@ export default function App() {
         activeIndex={activeIndex}
         setActiveIndex={setActiveIndex}
         onAddDisruption={handleAddDisruption}
+        onRemoveDisruption={handleRemoveDisruption}
       />;
       case 'stress-test': return <StressTest
         onAcceptScenario={handleAddDisruption}
@@ -48,6 +64,7 @@ export default function App() {
         setStressTestResult={setStressTestResult}
         acceptedScenarios={acceptedScenarios}
         setAcceptedScenarios={setAcceptedScenarios}
+        onNavigate={setActivePage}
       />;
       case 'actions': return <ActionCenter
         analysisResult={activeResult}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCircle, ShieldCheck, Lock, History, Clock, Wind, ArrowRight, Package, Newspaper, Loader2, Radio } from 'lucide-react';
+import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCircle, ShieldCheck, Lock, History, Clock, Wind, ArrowRight, Package, Newspaper, Loader2, Radio, X } from 'lucide-react';
 import ReasoningTrace from '../components/ReasoningTrace';
 import HealthBadge from '../components/HealthBadge';
 import OverrideModal from '../components/OverrideModal';
@@ -11,7 +11,7 @@ const RISK_APPETITES = [
     { value: 'aggressive', label: 'Aggressive', desc: 'Prioritize speed' },
 ];
 
-export default function Disruption({ disruptionHistory = [], activeIndex = -1, setActiveIndex, onAddDisruption }) {
+export default function Disruption({ disruptionHistory = [], activeIndex = -1, setActiveIndex, onAddDisruption, onRemoveDisruption }) {
     const [signal, setSignal] = useState('');
     const [riskAppetite, setRiskAppetite] = useState('balanced');
     const [loading, setLoading] = useState(false);
@@ -581,7 +581,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                             <button
                                 key={item.strategy_id || idx}
                                 onClick={() => setActiveIndex(idx)}
-                                className="w-full text-left p-4 rounded-xl transition-all"
+                                className="group w-full text-left p-4 rounded-xl transition-all"
                                 style={{
                                     background: activeIndex === idx ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
                                     border: `1px solid ${activeIndex === idx ? 'rgba(59, 130, 246, 0.3)' : 'var(--border)'}`
@@ -589,6 +589,14 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                             >
                                 <div className="flex justify-between items-start mb-1.5">
                                     <div className="flex items-center gap-1.5">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onRemoveDisruption?.(idx); }}
+                                            className="flex items-center justify-center w-5 h-5 rounded hover:bg-red-600 transition-colors"
+                                            style={{ color: 'white', background: '#ef4444' }}
+                                            title="Remove disruption"
+                                        >
+                                            <X size={12} strokeWidth={3} />
+                                        </button>
                                         {item.source === 'wind-tunnel' && (
                                             <Wind size={10} className="text-purple-400" />
                                         )}
@@ -618,6 +626,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                             Trust: {item.guardrails.trust_score}%
                                         </span>
                                     )}
+
                                 </div>
                             </button>
                         ))}

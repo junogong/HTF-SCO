@@ -12,35 +12,74 @@ from modules.ingestion import ingest_signal
 
 logger = logging.getLogger(__name__)
 
-# ── Scenario generation prompt ─────────────────────────────────────────────
+# ── Dynamic scenario generation prompt (graph-aware) ───────────────────────
 
-_SCENARIO_PROMPT = """You are a global supply chain risk strategist for an electronics manufacturer.
+def _build_scenario_prompt() -> str:
+    """Build the scenario generation prompt dynamically from the live graph."""
+    # Collect all suppliers and their countries/categories
+    suppliers = graph_db.get_all_nodes("Supplier")
+    sub_suppliers = graph_db.get_all_nodes("SubSupplier")
+    regions = graph_db.get_all_nodes("Region")
+
+    supplier_lines = []
+    for s in suppliers:
+        caps = ", ".join(s.get("capabilities", [])[:3]) if s.get("capabilities") else s.get("category", "")
+        supplier_lines.append(f"  - {s['name']} ({s.get('country', '?')}) — {caps}")
+
+    sub_lines = []
+    for ss in sub_suppliers:
+        note = ss.get("risk_note", ss.get("category", ""))
+        sub_lines.append(f"  - {ss.get('name', '?')} ({ss.get('country', '?')}) — {note}")
+
+    region_lines = []
+    for r in regions:
+        factors = ", ".join(r.get("risk_factors", []))
+        region_lines.append(f"  - {r.get('name', '?')} (Risk: {r.get('risk_level', '?')}) — {factors}")
+
+    # Extract unique countries for emphasis
+    all_countries = sorted(set(
+        s.get("country", "") for s in suppliers + sub_suppliers if s.get("country")
+    ))
+
+    return f"""You are a global supply chain risk strategist for NexGen Electronics.
 Generate 5 distinct "Black Swan" supply chain shock scenarios for 2025-2026.
-Each must be plausible but severe. Cover different risk categories and geographies.
 
-The manufacturer's supply chain spans: Taiwan (semiconductors), China (batteries, connectors),
-Germany (MEMS sensors), Mexico (PCB assembly), India (passive components), Japan (RF modules),
-Indonesia (resin), Ukraine (neon gas), D.R. Congo (cobalt), Chile (lithium), Malaysia (rare earths).
+CRITICAL RULES:
+- Each scenario's "signal" field MUST explicitly mention one of these EXACT country names: {', '.join(all_countries)}
+- The signal must read like a real news headline that would trigger our monitoring system
+- Cover different risk categories and geographies
+- Each scenario must be plausible but severe
 
-Return ONLY valid JSON — an array of exactly 5 objects, each with:
-{
-  "id": "scenario-1",
-  "name": "string — short name",
-  "description": "string — 2 sentence description of what happened",
-  "signal": "string — the news headline/signal to ingest (mention a specific country/region)",
-  "category": "geopolitical|weather|financial|logistics|quality",
-  "probability": "low|medium|high",
-  "affected_regions": ["list of countries"]
-}"""
+=== OUR TIER-1 SUPPLIERS (target these) ===
+{chr(10).join(supplier_lines)}
+
+=== OUR UPSTREAM SUB-SUPPLIERS (Tier 2/3) ===
+{chr(10).join(sub_lines)}
+
+=== HIGH-RISK REGIONS ===
+{chr(10).join(region_lines)}
+
+Return ONLY valid JSON — an array of exactly 5 objects:
+[
+  {{
+    "id": "scenario-1",
+    "name": "string — short descriptive name",
+    "description": "string — 2 sentence description of what happened",
+    "signal": "string — a news headline mentioning a SPECIFIC country from the list above",
+    "category": "geopolitical|weather|financial|logistics|quality",
+    "probability": "low|medium|high",
+    "affected_regions": ["list of affected countries from the list above"]
+  }}
+]"""
 
 
 def generate_scenarios(n: int = 5) -> list:
-    """Use Gemini to generate N black-swan supply chain scenarios."""
+    """Use Gemini to generate N black-swan supply chain scenarios from live graph data."""
+    prompt = _build_scenario_prompt()
     try:
-        raw = vertex_ai.generate_response(_SCENARIO_PROMPT, persona=None, context={})
+        raw = vertex_ai.generate_response(prompt, persona=None, context={})
         if isinstance(raw, list):
             return raw[:n]
-        # Fallback: return static scenarios
     except Exception as e:
         logger.warning(f"Scenario generation failed: {e} — using static fallback")
 

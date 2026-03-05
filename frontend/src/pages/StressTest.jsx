@@ -10,7 +10,8 @@ export default function StressTest({
     stressTestResult: result,
     setStressTestResult: setResult,
     acceptedScenarios,
-    setAcceptedScenarios
+    setAcceptedScenarios,
+    onNavigate
 }) {
     const [loading, setLoading] = useState(false);
     const [expanded, setExpanded] = useState(null);
