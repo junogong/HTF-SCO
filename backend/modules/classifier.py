@@ -137,7 +137,7 @@ class HighSpeedClassifier:
 
                 result["source_label"] = f"Signal: {signal_text[:80]}..." if len(signal_text) > 80 else f"Signal: {signal_text}"
                 result["classifier"] = "fine-tuned-flash" if TUNED_MODEL_ENDPOINT else "base-flash"
-                logger.info(f"🟢 Signal classified via {'Fine-Tuned AI' if TUNED_MODEL_ENDPOINT else 'Base AI'}")
+                logger.info(f"🟢 Signal classified via {'Fine-Tuned AI' if TUNED_MODEL_ENDPOINT else 'Base AI'} | Countries: {result.get('affected_countries')}")
                 return result
 
             except Exception as e:
@@ -267,7 +267,7 @@ class HighSpeedClassifier:
             return False
             
         # If in simulator mode or model is unavailable, use strict string matching fallback
-        if not USE_REAL_VERTEX or not self.fast_model:
+        if not USE_REAL_VERTEX or not self._model:
             new_lower = new_headline.lower().strip()
             for h in recent_headlines:
                 if new_lower in h.lower() or h.lower() in new_lower:
@@ -294,7 +294,7 @@ Are they describing the exact same specific event?
 Respond ONLY with YES or NO.
             """
             
-            response = self.fast_model.generate_content(
+            response = self._model.generate_content(
                 prompt,
                 generation_config={"temperature": 0.0, "max_output_tokens": 5}
             )

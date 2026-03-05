@@ -163,48 +163,9 @@ Return JSON with exactly these fields:
     # ── Classifier (kept local, no API call needed) ───────────────────
 
     def _classifier_response(self, text):
-        """Deterministic keyword-based signal classification."""
-        text_lower = text.lower()
-        categories = {
-            "geopolitical": ["war", "sanction", "tariff", "conflict", "political", "embargo", "trade war"],
-            "weather": ["earthquake", "flood", "typhoon", "hurricane", "monsoon", "tsunami", "storm", "wildfire"],
-            "financial": ["bankruptcy", "default", "recession", "credit", "debt", "acquisition", "merger"],
-            "quality": ["recall", "defect", "contamination", "failure", "inspection", "compliance"],
-            "logistics": ["port", "shipping", "container", "freight", "customs", "delay", "strike", "blockage", "canal", "suez"],
-        }
-
-        detected_category = "general"
-        severity = 5
-        for cat, keywords in categories.items():
-            for kw in keywords:
-                if kw in text_lower:
-                    detected_category = cat
-                    severity = min(10, severity + 2)
-                    break
-
-        regions = {
-            "taiwan": "East Asia", "china": "East Asia", "chinese": "East Asia",
-            "japan": "East Asia", "japanese": "East Asia", "korea": "East Asia", "korean": "East Asia",
-            "india": "South Asia", "indian": "South Asia",
-            "vietnam": "Southeast Asia", "thailand": "Southeast Asia",
-            "germany": "Europe", "german": "Europe", "france": "Europe", "french": "Europe", "uk": "Europe", "british": "Europe",
-            "mexico": "North America", "mexican": "North America", "brazil": "South America",
-            "shanghai": "East Asia", "shenzhen": "East Asia",
-            "suez": "Middle East", "panama": "Central America",
-        }
-        detected_region = None
-        for place, region in regions.items():
-            if place in text_lower:
-                detected_region = region
-                break
-
-        return {
-            "category": detected_category,
-            "severity": min(severity, 10),
-            "region": detected_region,
-            "keywords": [w for cat in categories.values() for w in cat if w in text_lower],
-            "source_label": f"Signal: {text[:80]}..." if len(text) > 80 else f"Signal: {text}",
-        }
+        """Unified signal classification via the HighSpeedClassifier."""
+        from modules.classifier import classifier
+        return classifier.classify(text)
 
     # ── Fallback Templates ────────────────────────────────────────────
 
