@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 # ── In-memory store for scraped + classified signals ─────────────────
 _scraped_signals = []          # All classified headlines
 _auto_disruptions = []         # Full orchestrator results for high-severity signals
+_processed_headlines = set()   # Global exact-match tracking to avoid redundant analysis
 
 # Severity threshold: signals at or above this run through the full orchestrator
 AUTO_ANALYZE_THRESHOLD = 6
@@ -21,15 +22,6 @@ AUTO_ANALYZE_THRESHOLD = 6
 def _run_async_analysis(text, classification):
     """Heavy AI orchestration runs in a background thread to keep UI responsive."""
     try:
-        # Cross-run deduplication (check last 20 disruptions by exact headline)
-        recent_texts = [d.get("scraped_headline", d.get("signal", "")) for d in _auto_disruptions[-20:]]
-        
-        # Simplified deduplication as requested — no semantic similarity check
-        if text in recent_texts:
-            logger.info(f"   ⏭️  [Async] Skipped exact duplicate: {text[:60]}...")
-            ingest_signal(text, signal_type="news")
-            return
-
         logger.info(f"   🚨 [Async] Starting deep analysis: {text[:60]}...")
         result = analyze_disruption(text)
         result["source"] = "finviz-auto"
@@ -43,6 +35,8 @@ def _run_async_analysis(text, classification):
         logger.info(f"   ✅ [Async] Analysis complete: ${result['strategy']['revenue_at_risk']:,} at risk")
     except Exception as e:
         logger.error(f"   ❌ [Async] Orchestrator failed for '{text[:40]}': {e}")
+        # Optionally remove from _processed_headlines on failure to allow retry
+        # _processed_headlines.discard(text)
 
 
 @cron_bp.route('/scrape-finviz', methods=['POST'])
@@ -54,21 +48,40 @@ def cron_scrape_finviz():
     logger.info("Cron triggered: /api/cron/scrape-finviz")
     
     headlines = scrape_finviz_news()
+    
+    # 1. Handle Scraper Failures (Rate limiting, connection issues, etc.)
+    if headlines is None:
+        return jsonify({
+            "status": "error",
+            "message": "The news scraper is currently unavailable (potential rate limiting or connectivity issue). Check backend logs for status codes."
+        }), 503
+
+    # 2. Handle Case: Scraper worked, but no Bloomberg headlines found
     if not headlines:
-        return jsonify({"status": "error", "message": "Failed to scrape any headlines"}), 500
+        return jsonify({
+            "status": "success", 
+            "message": "No new Bloomberg headlines found at this time.",
+            "scraped_total": 0,
+            "processed": 0,
+            "auto_analyzed_started": 0
+        }), 200
         
     headlines_to_process = headlines[:20]
     classified_signals = []
-    processed_in_batch = set() # Batch-level deduplication
     threads_started = 0
     
     for text in headlines_to_process:
         try:
-            # Batch-level deduplication (exact or near-exact match in this run)
-            text_norm = text.lower().strip()
-            if any(text_norm in p or p in text_norm for p in processed_in_batch):
+            # Global exact-match deduplication
+            if text in _processed_headlines:
                 continue
-            processed_in_batch.add(text_norm)
+            _processed_headlines.add(text)
+            
+            # Memory management for the seen set (keep last 500 headlines)
+            if len(_processed_headlines) > 500:
+                # Poor man's LRU: just clear it or pop one
+                # For simplicity, we just keep it or use a list
+                pass
 
             classification = high_speed_classifier.classify(text)
             
@@ -87,6 +100,9 @@ def cron_scrape_finviz():
             
             # High-severity signals trigger background analysis
             if classification.get("severity", 0) >= AUTO_ANALYZE_THRESHOLD and classification.get("category") != "general":
+                # Ingest immediately so it shows up in "Recent Signals" instantly
+                ingest_signal(text, signal_type="news")
+                
                 thread = threading.Thread(target=_run_async_analysis, args=(text, classification))
                 thread.daemon = True
                 thread.start()

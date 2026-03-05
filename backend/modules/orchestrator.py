@@ -13,6 +13,7 @@ import time
 import logging
 import json
 import os
+import concurrent.futures
 from modules.ingestion import ingest_signal
 from modules.agents import logistics_agent, finance_agent
 from modules.memory import retrieve_relevant_lessons, format_lessons_for_context, store_lesson
@@ -389,8 +390,12 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
         "past_lessons": lesson_docs,
     }
 
-    logistics_analysis = logistics_agent.analyze(debate_context)
-    finance_analysis = finance_agent.analyze(debate_context)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        logistics_future = executor.submit(logistics_agent.analyze, debate_context)
+        finance_future = executor.submit(finance_agent.analyze, debate_context)
+        
+        logistics_analysis = logistics_future.result()
+        finance_analysis = finance_future.result()
 
     trace.append({
         "step": 4,
@@ -426,10 +431,11 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
     requires_manual_review = confidence_score < CONFIDENCE_THRESHOLD
     executive_escalation = revenue_at_risk > revenue_threshold
 
-    # Generate emails for affected suppliers
+    # Generate emails for affected suppliers in parallel
     actions = synthesis.get("mitigation_actions", [])
-    for sup in safe_suppliers[:2]:
-        email = vertex_ai.generate_response(
+    
+    def _generate_email_for_supplier(sup):
+        return vertex_ai.generate_response(
             prompt="Generate supplier email",
             persona="email_generator",
             context={
@@ -437,13 +443,22 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
                 "company_name": "NexGen Electronics",
                 "disruption": signal_text,
             }
-        )
-        # Attach email to the supplier_email action
-        for act in actions:
-            if act["type"] == "supplier_email" and "email" not in act:
-                act["email"] = email
-                act["target_supplier"] = sup.get("name", "Supplier")
-                break
+        ), sup.get("name", "Supplier")
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        email_futures = [executor.submit(_generate_email_for_supplier, sup) for sup in safe_suppliers[:2]]
+        
+        for future in email_futures:
+            try:
+                email_body, sup_name = future.result()
+                # Attach email to the supplier_email action
+                for act in actions:
+                    if act["type"] == "supplier_email" and "email" not in act:
+                        act["email"] = email_body
+                        act["target_supplier"] = sup_name
+                        break
+            except Exception as e:
+                logger.error(f"Failed to generate parallel email: {e}")
 
     # Executive escalation action
     if executive_escalation:

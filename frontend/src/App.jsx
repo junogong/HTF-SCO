@@ -12,6 +12,7 @@ import StressTest from './pages/StressTest';
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const [disruptionHistory, setDisruptionHistory] = useState([]);
+  const [signals, setSignals] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const activeResult = activeIndex >= 0 ? disruptionHistory[activeIndex] : null;
@@ -25,10 +26,17 @@ export default function App() {
   useEffect(() => {
     const poll = async () => {
       try {
-        // Trigger the background scraper
+        // 1. Trigger the background scraper
         const scrapeRes = await api.post('/cron/scrape-finviz');
-        if (scrapeRes.data.auto_analyzed > 0) {
-          // Fetch the actual disruptions
+
+        // 2. Fetch the latest classified signals (instant feedback)
+        const signalsRes = await api.get('/cron/scraped-signals');
+        if (signalsRes.data.signals) {
+          setSignals(signalsRes.data.signals.reverse());
+        }
+
+        // 3. Fetch auto-analyzed disruptions if some were processed
+        if (scrapeRes.data.auto_analyzed_started > 0 || disruptionHistory.length === 0) {
           const disruptionsRes = await api.get('/cron/auto-disruptions');
           const newDisruptions = disruptionsRes.data.disruptions || [];
 
@@ -86,6 +94,7 @@ export default function App() {
       case 'dashboard': return <Dashboard
         activeResult={activeResult}
         disruptionHistory={disruptionHistory}
+        signals={signals}
       />;
       case 'graph': return <SupplyGraph analysisResult={activeResult} />;
       case 'disruption': return <Disruption

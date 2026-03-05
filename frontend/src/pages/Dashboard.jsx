@@ -4,7 +4,7 @@ import KpiCard from '../components/KpiCard';
 import HealthBadge from '../components/HealthBadge';
 import api from '../api/client';
 
-export default function Dashboard({ activeResult, disruptionHistory = [] }) {
+export default function Dashboard({ activeResult, disruptionHistory = [], signals = [] }) {
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [now, setNow] = useState(new Date());
@@ -172,20 +172,25 @@ export default function Dashboard({ activeResult, disruptionHistory = [] }) {
                         <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <Radio size={13} className="text-amber-400" />
                             <span className="text-[10px] font-bold text-white uppercase tracking-widest">Signal Feed</span>
-                            <span className="ml-auto text-[10px] text-slate-500">{disruptionHistory.length} events</span>
+                            <span className="ml-auto text-[10px] text-slate-500">{signals.length} signals</span>
                         </div>
-                        {disruptionHistory.length === 0 ? (
-                            <p className="text-xs text-slate-500 py-4 text-center">No disruption events logged yet. Run a scan or analysis.</p>
+                        {signals.length === 0 ? (
+                            <p className="text-xs text-slate-500 py-4 text-center">No real-time signals detected. Scanning Bloomberg...</p>
                         ) : (
                             <div className="space-y-1.5 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
-                                {disruptionHistory.slice(0, 8).map((d, i) => (
+                                {signals.slice(0, 12).map((d, i) => (
                                     <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors hover:bg-white/5"
-                                        style={{ borderLeft: `2px solid ${d.source === 'wind-tunnel' ? '#8b5cf6' : '#ef4444'}` }}>
-                                        <span className="text-[11px] truncate text-slate-300 flex-1 mr-2">
-                                            {d.strategy?.name || d.signal?.slice(0, 40) || 'Event'}
-                                        </span>
-                                        <span className="text-[11px] font-mono font-bold text-red-400/80 whitespace-nowrap">
-                                            ${((d.strategy?.revenue_at_risk || 0) / 1e6).toFixed(1)}M
+                                        style={{ borderLeft: `2px solid ${d.severity >= 7 ? '#ef4444' : '#3b82f6'}` }}>
+                                        <div className="flex-1 min-w-0 mr-2">
+                                            <p className="text-[11px] font-bold text-white uppercase tracking-tight" style={{ fontSize: '9px', opacity: 0.7 }}>
+                                                {d.category || 'General'}
+                                            </p>
+                                            <p className="text-[11px] truncate text-slate-300" title={d.text}>
+                                                {d.text}
+                                            </p>
+                                        </div>
+                                        <span className="text-[10px] font-mono font-bold text-slate-500 whitespace-nowrap">
+                                            {new Date(d.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
                                 ))}
