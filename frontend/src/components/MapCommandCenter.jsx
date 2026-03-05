@@ -60,6 +60,43 @@ const MAP_SCALE = 190;
 const SVG_W = 1200;
 const SVG_H = 600;
 
+// Bloomberg-style Dummy Shipping Vessels on fixed ocean routes to avoid land clipping
+const OCEAN_ROUTES = [
+    // Trans-Pacific 1 (Asia to LA)
+    [[125, 20], [140, 25], [160, 35], [-160, 40], [-130, 38], [-125, 33]],
+    // Trans-Pacific 2 (Japan to Seattle)
+    [[145, 35], [160, 45], [-160, 50], [-140, 48], [-130, 47]],
+    // Trans-Atlantic (Europe to NY)
+    [[-10, 45], [-20, 48], [-40, 44], [-60, 42], [-70, 40]],
+    // Asia to Europe (Indian Ocean to Red Sea approx)
+    [[100, 5], [80, 5], [60, 15], [52, 13]],
+    // South Africa to Europe
+    [[20, -35], [10, -20], [-10, 0], [-20, 20], [-15, 40], [-10, 45]],
+    // South America to Asia
+    [[-75, -20], [-90, -20], [-130, -10], [-170, 0], [150, 10], [130, 20]],
+    // US West Coast to Panama
+    [[-125, 33], [-115, 20], [-100, 10], [-85, 5]],
+    // Panama to US East Coast
+    [[-75, 15], [-70, 25], [-70, 35], [-70, 40]],
+    // South America East to Europe
+    [[-40, -20], [-30, -10], [-20, 10], [-15, 30], [-10, 45]],
+    // Australia to China
+    [[155, -30], [155, -10], [140, 0], [130, 10], [125, 20]],
+    // Indian Ocean (Singapore to South Africa)
+    [[100, 0], [90, -5], [70, -15], [50, -25], [30, -35]],
+];
+
+const CONTAINER_SHIPS = Array.from({ length: 65 }).map((_, i) => {
+    return {
+        id: `vessel-${i}`,
+        routeIndex: i % OCEAN_ROUTES.length,
+        progress: Math.random(),
+        // Speed in terms of route progress per second
+        speed: 0.001 + Math.random() * 0.003, // Slower but still visibly moving
+        type: Math.random() > 0.8 ? 'tanker' : 'cargo'
+    };
+});
+
 function getNodeColor(supplierId, affectedIds, indirectIds, healthScores) {
     if (affectedIds.has(supplierId)) return "#ef4444";           // Directly disrupted — red
     if (indirectIds && indirectIds.has(supplierId)) return "#eab308"; // Indirectly via sub-supplier — yellow
@@ -84,6 +121,7 @@ function getSubSupplierColor(subId, disruptedRegion) {
 
 function MapCommandCenter({ analysisResult, suppliers = [] }) {
     const [animProgress, setAnimProgress] = useState(0);
+    const [shipTime, setShipTime] = useState(0);
     const [selectedMarker, setSelectedMarker] = useState(null);
     const [zoom, setZoom] = useState(1);
     const [center, setCenter] = useState(MAP_CENTER);
@@ -110,12 +148,23 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
             .translate([SVG_W / 2, SVG_H / 2]),
         []);
 
-    // Animate transit icons
+    // Animate transit icons and container ships
     useEffect(() => {
-        const interval = setInterval(() => {
-            setAnimProgress(prev => (prev + 0.003) % 1);
-        }, 50);
-        return () => clearInterval(interval);
+        let frame;
+        let lastTime = Date.now();
+        const start = Date.now();
+
+        const update = () => {
+            const now = Date.now();
+            if (now - lastTime >= 50) {
+                setAnimProgress(prev => (prev + 0.003) % 1);
+                lastTime = now;
+            }
+            setShipTime((now - start) / 1000);
+            frame = requestAnimationFrame(update);
+        };
+        frame = requestAnimationFrame(update);
+        return () => cancelAnimationFrame(frame);
     }, []);
 
     // Project a coord to SVG space (for flat lines)
@@ -243,6 +292,53 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
                                         ✕
                                     </text>
                                 )}
+                            </Marker>
+                        );
+                    })}
+
+                    {/* Dummy Container Ships (Bloomberg Terminal Style) */}
+                    {CONTAINER_SHIPS.map(ship => {
+                        const route = OCEAN_ROUTES[ship.routeIndex];
+                        // Current progress wraps around when reaching 1
+                        const currentProgress = (ship.progress + ship.speed * shipTime) % 1;
+
+                        const numSegments = route.length - 1;
+                        const exactIndex = currentProgress * numSegments;
+                        const idx = Math.floor(exactIndex);
+                        const t = exactIndex - idx;
+
+                        const p1 = route[idx];
+                        const p2 = route[idx + 1];
+
+                        let lon1 = p1[0], lat1 = p1[1];
+                        let lon2 = p2[0], lat2 = p2[1];
+
+                        // Handle International Date Line crossing
+                        if (Math.abs(lon2 - lon1) > 180) {
+                            if (lon2 > lon1) lon1 += 360;
+                            else lon2 += 360;
+                        }
+
+                        let currentLon = lon1 + (lon2 - lon1) * t;
+                        if (currentLon > 180) currentLon -= 360;
+                        if (currentLon < -180) currentLon += 360;
+                        let currentLat = lat1 + (lat2 - lat1) * t;
+
+                        // Heading calculation
+                        let dLon = lon2 - lon1;
+                        let dLat = lat2 - lat1;
+                        const heading = Math.atan2(dLat, dLon) * (180 / Math.PI);
+                        const headingScreen = -heading;
+
+                        return (
+                            <Marker key={ship.id} coordinates={[currentLon, currentLat]}>
+                                <g transform={`rotate(${90 + headingScreen})`}>
+                                    <path
+                                        d="M -1.5,3 L 1.5,3 L 2,-2 L 0,-4 L -2,-2 Z"
+                                        fill={ship.type === 'tanker' ? '#0ea5e9' : '#06b6d4'}
+                                        opacity="0.6"
+                                    />
+                                </g>
                             </Marker>
                         );
                     })}
@@ -416,6 +512,7 @@ function MapCommandCenter({ analysisResult, suppliers = [] }) {
                     { color: '#f59e0b', label: 'At-Risk' },
                     { color: '#ef4444', label: 'Impacted' },
                     { color: '#3b82f6', label: 'HQ' },
+                    { color: '#06b6d4', label: 'Active Vessel' }
                 ].map(item => (
                     <div key={item.label} className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
