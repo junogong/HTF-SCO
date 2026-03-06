@@ -4,41 +4,59 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-    { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-    { id: 'graph', label: 'SUPPLY GRAPH', icon: GitBranch },
-    { id: 'disruption', label: 'DISRUPTION ANALYSIS', icon: AlertTriangle },
-    { id: 'stress-test', label: 'WIND TUNNEL', icon: Wind },
-    { id: 'actions', label: 'ACTION CENTER', icon: CheckSquare },
-    { id: 'safety', label: 'RESPONSIBLE AI', icon: ShieldCheck },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'graph', label: 'Supply Graph', icon: GitBranch },
+    { id: 'disruption', label: 'Disruption Analysis', icon: AlertTriangle },
+    { id: 'stress-test', label: 'Wind Tunnel', icon: Wind },
+    { id: 'actions', label: 'Action Center', icon: CheckSquare },
+    { id: 'safety', label: 'Responsible AI', icon: ShieldCheck },
 ];
 
 export default function Sidebar({ activePage, onNavigate, pendingActionsCount }) {
     return (
         <aside
-            className="fixed left-0 top-0 h-screen z-50 flex flex-col w-[240px] transition-all"
+            className="fixed left-0 top-0 h-screen z-50 flex flex-col w-[240px]"
             style={{
                 background: 'var(--bg-primary)',
                 borderRight: '1px solid var(--border)',
             }}
         >
             {/* Logo */}
-            <div className="flex items-center gap-3 px-6 py-8 relative" style={{ borderBottom: '1px solid var(--border)' }}>
-                <div className="w-8 h-8 flex items-center justify-center flex-shrink-0 relative"
-                    style={{ background: 'var(--accent-primary-20)', border: '1px solid var(--accent-primary)' }}>
-                    <Shield size={16} className="text-[var(--accent-primary)]" />
+            <div className="flex items-center gap-3 px-6 py-7" style={{ borderBottom: '1px solid var(--border)' }}>
+                <div className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+                    style={{
+                        background: 'var(--accent-primary-10)',
+                        border: '1px solid var(--accent-primary-40)',
+                        borderRadius: '10px',
+                    }}>
+                    <Shield size={18} color="var(--accent-primary)" />
                 </div>
                 <div>
-                    <h1 className="text-[16px] font-bold tracking-widest font-mono text-white">
-                        SYS_SCR
+                    <h1 style={{
+                        fontFamily: 'var(--font-display)',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        color: 'var(--text-primary)',
+                        letterSpacing: '-0.02em',
+                        lineHeight: 1.2,
+                    }}>
+                        SCR Agent
                     </h1>
-                    <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5 font-mono" style={{ color: 'var(--accent-primary)' }}>
-                        [ COMMAND_CENTER ]
+                    <p style={{
+                        fontFamily: 'var(--font-sans)',
+                        fontSize: '11px',
+                        fontWeight: 500,
+                        color: 'var(--accent-primary)',
+                        lineHeight: 1.2,
+                        marginTop: '2px',
+                    }}>
+                        Control Tower
                     </p>
                 </div>
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto custom-scrollbar">
+            <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activePage === item.id;
@@ -47,35 +65,66 @@ export default function Sidebar({ activePage, onNavigate, pendingActionsCount })
                         <button
                             key={item.id}
                             onClick={() => onNavigate(item.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-2 transition-all duration-100 relative group font-mono
-                                ${isActive ? 'text-[var(--bg-primary)]' : 'hover:bg-[var(--bg-secondary)] hover:text-white'}
-                            `}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 transition-all relative group"
                             style={{
-                                background: isActive ? 'var(--accent-primary)' : 'transparent',
-                                color: isActive ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                                border: '1px solid',
-                                borderColor: isActive ? 'var(--accent-primary)' : 'transparent',
+                                background: isActive ? 'var(--accent-primary-10)' : 'transparent',
+                                color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                                borderRadius: '8px',
+                                border: 'none',
+                                fontFamily: 'var(--font-sans)',
+                                cursor: 'pointer',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isActive) {
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                                    e.currentTarget.style.color = 'var(--text-primary)';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isActive) {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = 'var(--text-secondary)';
+                                }
                             }}
                         >
-                            {/* Active pill indicator */}
+                            {/* Active indicator */}
                             {isActive && (
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-[var(--bg-primary)] opacity-50" />
+                                <div style={{
+                                    position: 'absolute',
+                                    left: '0',
+                                    top: '8px',
+                                    bottom: '8px',
+                                    width: '3px',
+                                    borderRadius: '0 3px 3px 0',
+                                    background: 'var(--accent-primary)',
+                                }} />
                             )}
 
-                            <Icon size={16} className={`flex-shrink-0 transition-transform duration-100 ${isActive ? 'text-[var(--bg-primary)]' : 'group-hover:text-white'}`} />
-                            <span className={`text-[12px] tracking-widest flex-1 text-left ${isActive ? 'font-bold' : 'font-medium'}`}>
+                            <Icon size={17} style={{ flexShrink: 0 }} />
+                            <span style={{
+                                fontSize: '13px',
+                                fontWeight: isActive ? 600 : 500,
+                                flex: 1,
+                                textAlign: 'left',
+                            }}>
                                 {item.label}
                             </span>
 
                             {/* Notification Badge */}
                             {showBadge && (
-                                <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 text-[10px] font-bold"
-                                    style={{
-                                        background: isActive ? 'var(--bg-primary)' : 'var(--accent-danger)',
-                                        color: isActive ? 'var(--accent-danger)' : 'var(--text-on-accent)',
-                                        border: isActive ? 'none' : '1px solid var(--accent-danger)',
-                                    }}
-                                >
+                                <span style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: '20px',
+                                    height: '20px',
+                                    padding: '0 6px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    background: 'var(--accent-danger)',
+                                    color: 'white',
+                                    borderRadius: '10px',
+                                }}>
                                     {pendingActionsCount}
                                 </span>
                             )}
@@ -85,16 +134,39 @@ export default function Sidebar({ activePage, onNavigate, pendingActionsCount })
             </nav>
 
             {/* Status indicator */}
-            <div className="p-4 mt-auto border-t" style={{ borderColor: 'var(--border)' }}>
-                <div className="p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                    <div className="relative flex items-center gap-3">
-                        <div className="relative flex w-2 h-2">
-                            <span className="animate-blink absolute inline-flex h-full w-full bg-[var(--accent-primary)] opacity-75"></span>
-                            <span className="relative inline-flex w-2 h-2 bg-[var(--accent-primary)]"></span>
-                        </div>
+            <div className="p-4 mt-auto" style={{ borderTop: '1px solid var(--border)' }}>
+                <div style={{
+                    padding: '12px 14px',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                }}>
+                    <div className="flex items-center gap-3">
+                        <span style={{
+                            width: '7px',
+                            height: '7px',
+                            borderRadius: '50%',
+                            background: 'var(--accent-success)',
+                            boxShadow: '0 0 8px rgba(129, 199, 132, 0.4)',
+                            animation: 'pulse-soft 2s ease-in-out infinite',
+                        }} />
                         <div>
-                            <p className="text-[11px] font-bold text-white tracking-widest font-mono">STATUS: OK</p>
-                            <p className="text-[9px] font-mono mt-0.5" style={{ color: 'var(--text-muted)' }}>// UPLINK_SECURE</p>
+                            <p style={{
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                fontFamily: 'var(--font-sans)',
+                            }}>
+                                System Online
+                            </p>
+                            <p style={{
+                                fontSize: '10px',
+                                color: 'var(--text-muted)',
+                                fontFamily: 'var(--font-sans)',
+                                marginTop: '1px',
+                            }}>
+                                All services operational
+                            </p>
                         </div>
                     </div>
                 </div>
