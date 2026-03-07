@@ -4,12 +4,14 @@ import Dashboard from './pages/Dashboard';
 import SupplyGraph from './pages/SupplyGraph';
 import Disruption from './pages/Disruption';
 import ActionCenter from './pages/ActionCenter';
+import LandingPage from './pages/LandingPage';
 import api from './api/client';
 
 import SafetyDashboard from './pages/SafetyDashboard';
 import StressTest from './pages/StressTest';
 
 export default function App() {
+  const [hasLaunched, setHasLaunched] = useState(false);
   const [activePage, setActivePage] = useState('dashboard');
   const [disruptionHistory, setDisruptionHistory] = useState([]);
   const [signals, setSignals] = useState([]);
@@ -124,12 +126,16 @@ export default function App() {
     }
   };
 
+  if (!hasLaunched) {
+    return <LandingPage onLaunch={() => setHasLaunched(true)} />;
+  }
+
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar activePage={activePage} onNavigate={setActivePage} pendingActionsCount={pendingActionsCount} />
       <main style={{
-        paddingLeft: '240px', // Offset for the fixed left sidebar
-        paddingRight: '240px', // Symmetric offset on the right for perfect center
+        paddingLeft: '240px',
+        paddingRight: '48px',
         paddingTop: '32px',
         paddingBottom: '32px',
         width: '100%',
@@ -140,7 +146,7 @@ export default function App() {
         position: 'relative',
         zIndex: 1
       }}>
-        <div className="w-full max-w-[1200px]">
+        <div className="w-full max-w-[1400px]">
           {renderPage()}
         </div>
       </main>

@@ -1,15 +1,19 @@
-import { useState } from 'react';
-import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCircle, ShieldCheck, Lock, History, Clock, Wind, ArrowRight, Package, Newspaper, Loader2, Radio, X } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCircle, ShieldCheck, Lock, History, Clock, Wind, ArrowRight, Package, Newspaper, Loader2, Radio, X, Terminal, Activity, Brain, GitBranch, Swords, Shield } from 'lucide-react';
 import ReasoningTrace from '../components/ReasoningTrace';
 import HealthBadge from '../components/HealthBadge';
 import OverrideModal from '../components/OverrideModal';
 import api from '../api/client';
 
 const RISK_APPETITES = [
-    { value: 'conservative', label: 'Conservative', desc: 'Prioritize cost savings' },
-    { value: 'balanced', label: 'Balanced', desc: 'Equal weight' },
-    { value: 'aggressive', label: 'Aggressive', desc: 'Prioritize speed' },
+    { value: 'conservative', label: 'Conservative', desc: 'Prioritize cost savings', weight: '2.0× Cost / 0.5× Speed' },
+    { value: 'balanced', label: 'Balanced', desc: 'Equal weight', weight: '1.0× Cost / 1.0× Speed' },
+    { value: 'aggressive', label: 'Aggressive', desc: 'Prioritize speed', weight: '0.5× Cost / 2.0× Speed' },
 ];
+
+const STEP_ICONS = {
+    1: Radio, 2: GitBranch, 3: Brain, 4: Swords, 5: Shield, 6: ShieldCheck,
+};
 
 export default function Disruption({ disruptionHistory = [], activeIndex = -1, setActiveIndex, onAddDisruption, onRemoveDisruption }) {
     const [signal, setSignal] = useState('');
@@ -17,23 +21,86 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
     const [loading, setLoading] = useState(false);
     const [showOverride, setShowOverride] = useState(false);
 
+    // Live reasoning feed
+    const [reasoningSteps, setReasoningSteps] = useState([]);
+    const [activeStep, setActiveStep] = useState(null);
+    const feedRef = useRef(null);
+
     // News scraping state
     const [scraping, setScraping] = useState(false);
     const [scrapeResult, setScrapeResult] = useState(null);
 
     const result = activeIndex >= 0 ? disruptionHistory[activeIndex] : null;
 
+    // Auto-scroll reasoning feed
+    useEffect(() => {
+        if (feedRef.current) {
+            feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        }
+    }, [reasoningSteps]);
+
     const analyze = async () => {
         if (!signal.trim()) return;
         setLoading(true);
+        setReasoningSteps([]);
+        setActiveStep(null);
+
         try {
-            const res = await api.post('/disruption', { signal, risk_appetite: riskAppetite });
-            onAddDisruption?.(res.data);
-            setSignal('');
+            const response = await fetch('/api/disruption/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signal, risk_appetite: riskAppetite }),
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                let currentEvent = null;
+                for (const line of lines) {
+                    if (line.startsWith('event: ')) {
+                        currentEvent = line.slice(7).trim();
+                    } else if (line.startsWith('data: ')) {
+                        const data = JSON.parse(line.slice(6));
+                        if (currentEvent === 'step') {
+                            setReasoningSteps(prev => {
+                                const existing = prev.findIndex(s => s.step === data.step && s.status === 'running');
+                                if (data.status === 'complete' && existing >= 0) {
+                                    const updated = [...prev];
+                                    updated[existing] = data;
+                                    return updated;
+                                }
+                                return [...prev, data];
+                            });
+                            setActiveStep(data);
+                        } else if (currentEvent === 'result') {
+                            onAddDisruption?.(data);
+                            setSignal('');
+                        }
+                    }
+                }
+            }
         } catch (err) {
-            console.error(err);
+            console.error('Stream error:', err);
+            // Fallback to sync endpoint
+            try {
+                const res = await api.post('/disruption', { signal, risk_appetite: riskAppetite });
+                onAddDisruption?.(res.data);
+                setSignal('');
+            } catch (fallbackErr) {
+                console.error('Fallback error:', fallbackErr);
+            }
         }
         setLoading(false);
+        setActiveStep(null);
     };
 
     const scanNews = async () => {
@@ -43,13 +110,10 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
             const res = await api.post('/cron/scrape-finviz');
             setScrapeResult(res.data);
 
-            // Auto-fetch and add any auto-analyzed disruptions to the history
             if (res.data.auto_analyzed > 0) {
                 const disruptionsRes = await api.get('/cron/auto-disruptions');
                 const newDisruptions = disruptionsRes.data.disruptions || [];
-                // Add each auto-disruption to history (newest first)
                 for (const d of newDisruptions.reverse()) {
-                    // Avoid duplicates (check by strategy name)
                     const isDuplicate = disruptionHistory.some(
                         h => h.strategy?.name === d.strategy?.name
                     );
@@ -63,6 +127,20 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
             setScrapeResult({ status: 'error', message: err.message });
         }
         setScraping(false);
+    };
+
+    // Category badge helper
+    const getCategoryBadge = (category) => {
+        const cat = (category || 'general').toLowerCase();
+        const styles = {
+            financial: 'bg-amber-500/15 text-amber-400',
+            geopolitical: 'bg-red-500/15 text-red-400',
+            'supply chain': 'bg-cyan-500/15 text-cyan-400',
+            'supply-chain': 'bg-cyan-500/15 text-cyan-400',
+            'natural disaster': 'bg-orange-500/15 text-orange-400',
+            'natural-disaster': 'bg-orange-500/15 text-orange-400',
+        };
+        return <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${styles[cat] || 'bg-slate-500/15 text-slate-400'}`}>{category || 'General'}</span>;
     };
 
     return (
@@ -80,74 +158,197 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                     </p>
                 </div>
 
-                {/* Input Panel */}
-                <div className="glass-card space-y-4">
-                    <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                            Disruption Signal
-                        </label>
-                        <textarea
-                            className="input-field"
-                            rows={3}
-                            placeholder="Describe a supply chain disruption... (e.g., 'Earthquake in Taiwan affecting semiconductor production')"
-                            value={signal}
-                            onChange={e => setSignal(e.target.value)}
-                        />
-                    </div>
-
-                    {/* Risk Appetite Selector */}
-                    <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
-                            Risk Appetite
-                        </label>
-                        <div className="flex gap-2">
-                            {RISK_APPETITES.map(ra => (
-                                <button
-                                    key={ra.value}
-                                    onClick={() => setRiskAppetite(ra.value)}
-                                    className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 ${riskAppetite === ra.value ? 'text-white' : ''}`}
-                                    style={{
-                                        background: riskAppetite === ra.value ? 'var(--gradient-primary)' : 'var(--bg-secondary)',
-                                        border: `1px solid ${riskAppetite === ra.value ? 'transparent' : 'var(--border)'}`,
-                                        color: riskAppetite === ra.value ? '#fff' : 'var(--text-secondary)',
-                                    }}
-                                >
-                                    {ra.label}
-                                    <span className="block text-[10px] font-normal mt-0.5 opacity-70">{ra.desc}</span>
-                                </button>
-                            ))}
+                {/* Input + Live Reasoning Feed Layout */}
+                <div className={`${loading || reasoningSteps.length > 0 ? 'grid grid-cols-2 gap-5' : ''}`}>
+                    {/* Input Panel */}
+                    <div className="glass-card space-y-4">
+                        <div>
+                            <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                                Disruption Signal
+                            </label>
+                            <textarea
+                                className="input-field"
+                                rows={3}
+                                placeholder="Describe a supply chain disruption... (e.g., 'Earthquake in Taiwan affecting semiconductor production')"
+                                value={signal}
+                                onChange={e => setSignal(e.target.value)}
+                                disabled={loading}
+                            />
                         </div>
+
+                        {/* Risk Appetite Selector */}
+                        <div>
+                            <label className="text-xs font-semibold uppercase tracking-wider mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                                Risk Appetite
+                            </label>
+                            <div className="flex gap-2">
+                                {RISK_APPETITES.map(ra => (
+                                    <button
+                                        key={ra.value}
+                                        onClick={() => setRiskAppetite(ra.value)}
+                                        disabled={loading}
+                                        className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all duration-200 ${riskAppetite === ra.value ? 'text-white' : ''}`}
+                                        style={{
+                                            background: riskAppetite === ra.value ? 'var(--gradient-primary)' : 'var(--bg-secondary)',
+                                            border: `1px solid ${riskAppetite === ra.value ? 'transparent' : 'var(--border)'}`,
+                                            color: riskAppetite === ra.value ? '#fff' : 'var(--text-secondary)',
+                                        }}
+                                    >
+                                        {ra.label}
+                                        <span className="block text-[10px] font-normal mt-0.5 opacity-70">{ra.desc}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            {/* Weight indicator */}
+                            <div className="mt-2 flex items-center justify-center gap-2">
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{
+                                    background: 'rgba(79,195,247,0.08)',
+                                    color: '#4FC3F7',
+                                    border: '1px solid rgba(79,195,247,0.15)',
+                                }}>
+                                    {RISK_APPETITES.find(ra => ra.value === riskAppetite)?.weight}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Analyze Button — with step counter during loading */}
+                        <button
+                            className={`btn-primary w-full justify-center ${disruptionHistory.length > 0 ? '' : 'py-4 text-lg'}`}
+                            onClick={analyze}
+                            disabled={!signal.trim() || loading}
+                            style={loading ? { background: 'var(--bg-secondary)', borderColor: 'rgba(79,195,247,0.3)' } : {}}
+                        >
+                            {loading ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 size={16} className="animate-spin" style={{ color: '#4FC3F7' }} />
+                                    <span style={{ color: '#4FC3F7', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>
+                                        {activeStep ? `Step ${activeStep.step}/${activeStep.total}: ${activeStep.title}...` : 'Initializing pipeline...'}
+                                    </span>
+                                </span>
+                            ) : (
+                                <><Send size={disruptionHistory.length > 0 ? 16 : 20} /> Analyze Disruption</>
+                            )}
+                        </button>
+
+                        {/* Divider */}
+                        <div className="flex items-center gap-3">
+                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                            <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)' }}>or</span>
+                            <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
+                        </div>
+
+                        {/* Scan Live News Button with scanning animation */}
+                        <button
+                            className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                            onClick={scanNews}
+                            disabled={scraping}
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.12))',
+                                border: '1px solid rgba(245,158,11,0.3)',
+                                color: '#f59e0b',
+                                position: 'relative',
+                                overflow: 'hidden',
+                            }}
+                        >
+                            {/* Scanning sweep overlay */}
+                            {scraping && (
+                                <span style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: 'linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.15) 50%, transparent 100%)',
+                                    animation: 'scan-sweep 1.5s ease-in-out infinite',
+                                }} />
+                            )}
+                            {scraping ? <Loader2 size={16} className="animate-spin" /> : <Newspaper size={16} />}
+                            {scraping ? 'Scanning Finviz News Feed...' : 'Scan Live News Feed'}
+                        </button>
                     </div>
 
-                    <button
-                        className={`btn-primary w-full justify-center ${disruptionHistory.length > 0 ? '' : 'py-4 text-lg'}`}
-                        onClick={analyze}
-                        disabled={!signal.trim() || loading}
-                    >
-                        {loading ? <div className="spinner" /> : <><Send size={disruptionHistory.length > 0 ? 16 : 20} /> Analyze Disruption</>}
-                    </button>
+                    {/* Live Reasoning Feed — terminal-style log */}
+                    {(loading || reasoningSteps.length > 0) && (
+                        <div className="glass-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <div style={{
+                                padding: '12px 16px',
+                                borderBottom: '1px solid var(--border)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                background: 'rgba(0,0,0,0.2)',
+                            }}>
+                                <div className="flex items-center gap-2">
+                                    <Terminal size={14} style={{ color: '#4FC3F7' }} />
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>
+                                        Agent Reasoning Log
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                    <span style={{
+                                        width: '6px', height: '6px', borderRadius: '50%',
+                                        background: loading ? '#4FC3F7' : '#81C784',
+                                        animation: loading ? 'pulse-soft 1s ease-in-out infinite' : 'none',
+                                    }} />
+                                    <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: loading ? '#4FC3F7' : '#81C784' }}>
+                                        {loading ? 'LIVE' : 'COMPLETE'}
+                                    </span>
+                                </div>
+                            </div>
 
-                    {/* Divider */}
-                    <div className="flex items-center gap-3">
-                        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                        <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-muted)' }}>or</span>
-                        <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                    </div>
+                            <div ref={feedRef} style={{
+                                flex: 1,
+                                padding: '12px',
+                                overflowY: 'auto',
+                                maxHeight: '320px',
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '11px',
+                                lineHeight: '1.8',
+                                background: 'rgba(0,0,0,0.1)',
+                            }}>
+                                {reasoningSteps.map((step, i) => {
+                                    const StepIcon = STEP_ICONS[step.step] || Activity;
+                                    const isRunning = step.status === 'running';
+                                    const isComplete = step.status === 'complete';
+                                    return (
+                                        <div key={`${step.step}-${step.status}-${i}`}
+                                            className="flex items-start gap-2 py-1"
+                                            style={{
+                                                opacity: isRunning ? 0.85 : 1,
+                                                animation: 'fadeSlideIn 0.25s ease-out',
+                                            }}>
+                                            <span style={{
+                                                color: isRunning ? '#4FC3F7' : '#81C784',
+                                                flexShrink: 0,
+                                                marginTop: '1px',
+                                            }}>
+                                                {isRunning ? (
+                                                    <Loader2 size={11} className="animate-spin" />
+                                                ) : (
+                                                    <StepIcon size={11} />
+                                                )}
+                                            </span>
+                                            <span style={{ color: 'var(--text-muted)' }}>[{isRunning ? 'EXEC' : 'DONE'}]</span>
+                                            <span style={{
+                                                color: isComplete ? 'var(--text-secondary)' : '#4FC3F7',
+                                                fontWeight: isRunning ? 600 : 400,
+                                            }}>
+                                                {step.description}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
 
-                    {/* Scan Live News Button */}
-                    <button
-                        className="w-full py-3 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-                        onClick={scanNews}
-                        disabled={scraping}
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(239,68,68,0.12))',
-                            border: '1px solid rgba(245,158,11,0.3)',
-                            color: '#f59e0b',
-                        }}
-                    >
-                        {scraping ? <Loader2 size={16} className="animate-spin" /> : <Newspaper size={16} />}
-                        {scraping ? 'Scanning Finviz News Feed...' : 'Scan Live News Feed'}
-                    </button>
+                                {/* Blinking cursor when loading */}
+                                {loading && (
+                                    <div className="flex items-center gap-1 py-1" style={{ color: '#4FC3F7' }}>
+                                        <span style={{
+                                            width: '6px', height: '14px',
+                                            background: '#4FC3F7',
+                                            animation: 'blink-cursor 1s step-end infinite',
+                                        }} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Scrape Results */}
@@ -175,14 +376,12 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                             </div>
                         </div>
 
-                        {/* High-severity signals */}
                         {scrapeResult.high_severity_signals?.length > 0 && (
                             <div className="space-y-1.5">
                                 <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>High-Severity Signals (auto-analyzed)</p>
                                 {scrapeResult.high_severity_signals.map((s, i) => (
                                     <div key={i} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: 'rgba(239,68,68,0.06)' }}>
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${s.severity >= 8 ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'
-                                            }`}>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${s.severity >= 8 ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
                                             SEV {s.severity}
                                         </span>
                                         <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-500/15" style={{ color: 'var(--text-secondary)' }}>
@@ -236,7 +435,6 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                     <Zap size={12} /> Simulation Reasoning Chain
                                 </h4>
 
-                                {/* Step 1: Signal */}
                                 <div className="flex items-start gap-3">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold" style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa' }}>1</div>
                                     <div>
@@ -247,7 +445,6 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                     </div>
                                 </div>
 
-                                {/* Step 2: Region */}
                                 <div className="flex items-start gap-3">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold" style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa' }}>2</div>
                                     <div>
@@ -258,7 +455,6 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                     </div>
                                 </div>
 
-                                {/* Step 3: Tier-1 Impact */}
                                 <div className="flex items-start gap-3">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold" style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa' }}>3</div>
                                     <div>
@@ -273,7 +469,6 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                     </div>
                                 </div>
 
-                                {/* Step 4: Revenue */}
                                 <div className="flex items-start gap-3">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold" style={{ background: 'rgba(239,68,68,0.2)', color: '#f87171' }}>4</div>
                                     <div>
@@ -286,7 +481,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                             </div>
                         </div>
 
-                        {/* Pre-emptive Actions from Wind Tunnel */}
+                        {/* Pre-emptive Actions */}
                         {result.wind_tunnel_reasoning.preemptive_actions?.length > 0 && (
                             <div className="glass-card" style={{ borderColor: 'rgba(34,197,94,0.3)' }}>
                                 <h3 className="text-sm font-bold uppercase tracking-wider mb-3 flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
@@ -355,7 +550,6 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                 <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
                                     {result.strategy?.name}
                                 </h3>
-                                {/* Confidence Badge */}
                                 <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-bold ${result.strategy?.confidence_score >= 70
                                     ? 'bg-emerald-500/15 text-emerald-400'
                                     : 'bg-amber-500/15 text-amber-400'
@@ -375,15 +569,15 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                             <div className="grid grid-cols-3 gap-3">
                                 <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-secondary)' }}>
                                     <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Revenue at Risk</p>
-                                    <p className="text-lg font-bold text-red-400">${(result.strategy?.revenue_at_risk || 0).toLocaleString()}</p>
+                                    <p className="text-lg font-bold text-red-400" style={{ fontFamily: 'var(--font-mono)' }}>${(result.strategy?.revenue_at_risk || 0).toLocaleString()}</p>
                                 </div>
                                 <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-secondary)' }}>
                                     <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Affected Suppliers</p>
-                                    <p className="text-lg font-bold text-amber-400">{result.affected_suppliers?.length || 0}</p>
+                                    <p className="text-lg font-bold text-amber-400" style={{ fontFamily: 'var(--font-mono)' }}>{result.affected_suppliers?.length || 0}</p>
                                 </div>
                                 <div className="rounded-xl p-3 text-center" style={{ background: 'var(--bg-secondary)' }}>
                                     <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>Products at Risk</p>
-                                    <p className="text-lg font-bold text-purple-400">{result.blast_radius?.products_at_risk || 0}</p>
+                                    <p className="text-lg font-bold text-purple-400" style={{ fontFamily: 'var(--font-mono)' }}>{result.blast_radius?.products_at_risk || 0}</p>
                                 </div>
                             </div>
                         </div>
@@ -460,7 +654,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                     <div key={i} className="rounded-lg p-2.5 mb-2" style={{ background: 'var(--bg-secondary)' }}>
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{sla.supplier}</span>
-                                            <span className="text-xs font-bold text-amber-400">${sla.total_penalty?.toLocaleString()}</span>
+                                            <span className="text-xs font-bold text-amber-400" style={{ fontFamily: 'var(--font-mono)' }}>${sla.total_penalty?.toLocaleString()}</span>
                                         </div>
                                         <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
                                             ${sla.sla_penalty_per_day?.toLocaleString()}/day × {sla.estimated_delay_days} days
@@ -570,7 +764,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                 />
             </div>
 
-            {/* History Sidebar */}
+            {/* History Sidebar — enriched with KPI chips */}
             {disruptionHistory.length > 0 && (
                 <div className="w-80 flex-shrink-0 space-y-3 animate-fade-in sticky top-0">
                     <h3 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 mb-4" style={{ color: 'var(--text-muted)' }}>
@@ -600,33 +794,62 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
                                         {item.source === 'wind-tunnel' && (
                                             <Wind size={10} className="text-purple-400" />
                                         )}
-                                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                                            {item.classification?.category || 'Disruption Analysis'}
-                                        </span>
+                                        {/* Category badge */}
+                                        {item.classification?.category && getCategoryBadge(item.classification.category)}
                                     </div>
                                     <span className="text-[10px] whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
                                         <Clock size={10} className="inline mr-1 mb-0.5" />
                                         {idx === 0 ? 'Just now' : `${idx} items ago`}
                                     </span>
                                 </div>
-                                <p className="text-[11px] line-clamp-2 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                                <p className="text-[11px] line-clamp-2 leading-relaxed mt-1" style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
                                     {item.strategy?.name || 'Simulation Strategy Result'}
                                 </p>
-                                <div className="mt-2 flex items-center gap-2">
-                                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#f87171' }}>
-                                        ${((item.strategy?.revenue_at_risk || 0) / 1000000).toFixed(1)}M Risk
+
+                                {/* KPI chips row */}
+                                <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                                    {/* Revenue at Risk */}
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md font-bold flex items-center gap-1"
+                                        style={{
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.15)',
+                                            color: '#f87171',
+                                            fontFamily: 'var(--font-mono)',
+                                        }}>
+                                        <DollarSign size={9} />
+                                        {((item.strategy?.revenue_at_risk || 0) / 1e6).toFixed(1)}M
                                     </span>
+
+                                    {/* Severity */}
+                                    {item.classification?.severity && (
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${item.classification.severity >= 7
+                                            ? 'bg-red-500/15 text-red-400'
+                                            : item.classification.severity >= 4
+                                                ? 'bg-amber-500/15 text-amber-400'
+                                                : 'bg-blue-500/15 text-blue-400'
+                                            }`} style={{ fontFamily: 'var(--font-mono)' }}>
+                                            SEV {item.classification.severity}
+                                        </span>
+                                    )}
+
+                                    {/* Trust Score */}
+                                    {item.guardrails?.trust_score != null && (
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${item.guardrails.trust_score >= 80
+                                            ? 'bg-emerald-500/10 text-emerald-400'
+                                            : item.guardrails.trust_score >= 60
+                                                ? 'bg-amber-500/10 text-amber-400'
+                                                : 'bg-red-500/10 text-red-400'
+                                            }`} style={{ fontFamily: 'var(--font-mono)' }}>
+                                            Trust {item.guardrails.trust_score}%
+                                        </span>
+                                    )}
+
+                                    {/* Wind Tunnel badge */}
                                     {item.source === 'wind-tunnel' && (
                                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
                                             Wind Tunnel
                                         </span>
                                     )}
-                                    {item.guardrails?.trust_score && (
-                                        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${item.guardrails.trust_score >= 80 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-500'}`}>
-                                            Trust: {item.guardrails.trust_score}%
-                                        </span>
-                                    )}
-
                                 </div>
                             </button>
                         ))}
