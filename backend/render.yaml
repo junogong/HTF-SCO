@@ -23,3 +23,5 @@ services:
         value: "true"
       - key: USE_REAL_SPANNER
         value: "false" # Must remain false unless Spanner instance is paid for
+      - key: GEMINI_MODEL
+        value: "gemini-2.5-flash"
