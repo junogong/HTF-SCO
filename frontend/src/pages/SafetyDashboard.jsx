@@ -17,7 +17,7 @@ export default function SafetyDashboard({ disruptionHistory = [] }) {
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/safety');
+            const res = await api.get('safety');
             setReport(res.data);
         } catch (e) {
             console.error(e);

@@ -56,7 +56,7 @@ export default function ActionCenter({ disruptionHistory = [], dismissedActionId
 
     const handleApprove = async (actionId) => {
         try {
-            await api.post('/action/approve', { action_id: actionId, approved: true });
+            await api.post('action/approve', { action_id: actionId, approved: true });
             onDismissAction?.(actionId);  // permanently remove
         } catch (err) {
             console.error(err);
@@ -65,7 +65,7 @@ export default function ActionCenter({ disruptionHistory = [], dismissedActionId
 
     const handleReject = async (actionId) => {
         try {
-            await api.post('/action/approve', { action_id: actionId, approved: false });
+            await api.post('action/approve', { action_id: actionId, approved: false });
             onDismissAction?.(actionId);  // permanently remove
         } catch (err) {
             console.error(err);
@@ -75,7 +75,7 @@ export default function ActionCenter({ disruptionHistory = [], dismissedActionId
     const submitFeedback = async (actionId, strategyId) => {
         if (!rating) return;
         try {
-            await api.post('/feedback', {
+            await api.post('feedback', {
                 strategy_id: strategyId,
                 action_id: actionId,
                 rating,

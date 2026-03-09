@@ -92,7 +92,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
             console.error('Stream error:', err);
             // Fallback to sync endpoint
             try {
-                const res = await api.post('/disruption', { signal, risk_appetite: riskAppetite });
+                const res = await api.post('disruption', { signal, risk_appetite: riskAppetite });
                 onAddDisruption?.(res.data);
                 setSignal('');
             } catch (fallbackErr) {
@@ -107,11 +107,11 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
         setScraping(true);
         setScrapeResult(null);
         try {
-            const res = await api.post('/cron/scrape-finviz');
+            const res = await api.post('cron/scrape-finviz');
             setScrapeResult(res.data);
 
             if (res.data.auto_analyzed > 0) {
-                const disruptionsRes = await api.get('/cron/auto-disruptions');
+                const disruptionsRes = await api.get('cron/auto-disruptions');
                 const newDisruptions = disruptionsRes.data.disruptions || [];
                 for (const d of newDisruptions.reverse()) {
                     const isDuplicate = disruptionHistory.some(

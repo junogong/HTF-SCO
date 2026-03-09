@@ -20,7 +20,7 @@ export default function StressTest({
         setLoading(true);
         setResult(null);
         try {
-            const res = await api.post('/simulate/stress-test');
+            const res = await api.post('simulate/stress-test');
             setResult(res.data);
         } catch (e) {
             console.error(e);

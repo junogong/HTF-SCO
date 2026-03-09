@@ -7,7 +7,7 @@ export default function SupplyGraph({ analysisResult }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        api.get('/suppliers').then(res => {
+        api.get('suppliers').then(res => {
             setSuppliers(res.data.suppliers || []);
             setLoading(false);
         }).catch(() => setLoading(false));

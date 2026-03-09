@@ -76,17 +76,17 @@ export default function App() {
     const poll = async () => {
       try {
         // 1. Trigger the background scraper
-        const scrapeRes = await api.post('/cron/scrape-finviz');
+        const scrapeRes = await api.post('cron/scrape-finviz');
 
         // 2. Fetch the latest classified signals (instant feedback)
-        const signalsRes = await api.get('/cron/scraped-signals');
+        const signalsRes = await api.get('cron/scraped-signals');
         if (signalsRes.data.signals) {
           setSignals(signalsRes.data.signals.reverse());
         }
 
         // 3. Fetch auto-analyzed disruptions if some were processed
         if (scrapeRes.data.auto_analyzed_started > 0 || disruptionHistory.length === 0) {
-          const disruptionsRes = await api.get('/cron/auto-disruptions');
+          const disruptionsRes = await api.get('cron/auto-disruptions');
           const newDisruptions = disruptionsRes.data.disruptions || [];
 
           setDisruptionHistory(prev => {

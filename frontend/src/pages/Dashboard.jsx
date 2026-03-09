@@ -20,7 +20,7 @@ export default function Dashboard({ activeResult, disruptionHistory = [], signal
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
-        api.get('/suppliers').then(res => {
+        api.get('suppliers').then(res => {
             setSuppliers(res.data.suppliers || []);
             setLoading(false);
         }).catch(() => setLoading(false));
