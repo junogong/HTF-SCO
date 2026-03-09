@@ -5,7 +5,7 @@ services:
     region: ohio
     plan: free # Can upgrade to starter for $7/mo
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120"
     envVars:
       - key: FLASK_ENV
         value: production
