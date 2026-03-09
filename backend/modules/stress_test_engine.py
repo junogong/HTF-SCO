@@ -41,14 +41,15 @@ def _build_scenario_prompt() -> str:
         s.get("country", "") for s in suppliers + sub_suppliers if s.get("country")
     ))
 
-    return f"""You are a global supply chain risk strategist for NexGen Electronics.
-Generate 5 distinct "Black Swan" supply chain shock scenarios for 2025-2026.
+    return f"""You are a global supply chain risk strategist.
+Generate 5 distinct, highly realistic and probable supply chain disruption scenarios that could happen tomorrow.
+Avoid outlandish "Black Swan" events (like global wars or meteor strikes). Focus on likely operational, financial, logistics, or localized weather constraints.
 
 CRITICAL RULES:
 - Each scenario's "signal" field MUST explicitly mention one of these EXACT country names: {', '.join(all_countries)}
-- The signal must read like a real news headline that would trigger our monitoring system
+- The signal must read like a real news headline
 - Cover different risk categories and geographies
-- Each scenario must be plausible but severe
+- Each scenario must be highly plausible and realistic to a standard manufacturing supply chain
 
 === OUR TIER-1 SUPPLIERS (target these) ===
 {chr(10).join(supplier_lines)}
@@ -67,8 +68,9 @@ Return ONLY valid JSON — an array of exactly 5 objects:
     "description": "string — 2 sentence description of what happened",
     "signal": "string — a news headline mentioning a SPECIFIC country from the list above",
     "category": "geopolitical|weather|financial|logistics|quality",
-    "probability": "low|medium|high",
-    "affected_regions": ["list of affected countries from the list above"]
+    "probability": <int> — an integer from 1 to 10 representing likelihood (10 is most likely),
+    "affected_regions": ["list of affected countries from the list above"],
+    "suggested_actions": ["list of string — 1-2 suggested immediate actions to take"]
   }}
 ]"""
 
@@ -171,8 +173,17 @@ def run_scenario(scenario: dict) -> dict:
 
     total_revenue = round(total_revenue)
 
-    # Recommend pre-emptive stock builds for critical components
+    # Recommend pre-emptive actions based on graph, fallback to LLM suggestions
     preemptive_actions = _recommend_preemptive_actions(all_tier1, all_products, total_revenue)
+    if not preemptive_actions and scenario.get("suggested_actions"):
+        for i, acc in enumerate(scenario.get("suggested_actions", [])):
+            preemptive_actions.append({
+                "type": "custom_action",
+                "title": f"Investigate Mitigation",
+                "description": acc,
+                "priority": "HIGH",
+                "timeline": "This week"
+            })
 
     # Calculate post-mitigation R@R
     mitigated_revenue = total_revenue
@@ -278,24 +289,29 @@ def _recommend_preemptive_actions(tier1_suppliers, products, revenue):
 def _static_scenarios():
     """Fallback hard-coded scenarios if Gemini is unavailable."""
     return [
-        {"id": "scenario-1", "name": "Taiwan Strait Blockade",
-         "description": "China announces naval blockade around Taiwan. All maritime shipping halted.",
-         "signal": "China imposes naval blockade around Taiwan, halting all semiconductor shipments",
-         "category": "geopolitical", "probability": "low", "affected_regions": ["Taiwan", "China"]},
-        {"id": "scenario-2", "name": "Ukraine Neon Gas Embargo",
-         "description": "Ukraine halts all gas exports amid escalating conflict. Semiconductor fabs face neon shortage.",
-         "signal": "Ukraine halts neon gas exports, threatening global semiconductor lithography capacity",
-         "category": "geopolitical", "probability": "medium", "affected_regions": ["Ukraine"]},
-        {"id": "scenario-3", "name": "Indonesia Volcanic Eruption",
-         "description": "Mount Merapi erupts, disrupting palm oil and resin production across Java.",
-         "signal": "Mount Merapi volcanic eruption in Indonesia shuts down epoxy resin production facilities",
-         "category": "weather", "probability": "medium", "affected_regions": ["Indonesia"]},
-        {"id": "scenario-4", "name": "DRC Cobalt Export Ban",
-         "description": "D.R. Congo government nationalizes cobalt mines and bans raw exports.",
-         "signal": "D.R. Congo nationalizes cobalt mines and imposes export ban, disrupting EV battery supply chain",
-         "category": "geopolitical", "probability": "medium", "affected_regions": ["D.R. Congo"]},
-        {"id": "scenario-5", "name": "South China Sea Port Closures",
-         "description": "Typhoon Vera forces closure of Shenzhen and Shanghai ports for 3 weeks.",
-         "signal": "Super Typhoon Vera forces closure of Shenzhen and Shanghai ports for estimated 3 weeks",
-         "category": "weather", "probability": "high", "affected_regions": ["China"]},
+        {"id": "scenario-1", "name": "Taiwan Factory Power Outage",
+         "description": "Major localized power outage strikes industrial parks, halting production.",
+         "signal": "Taiwan industrial park experiences rolling blackouts, affecting local manufacturing",
+         "category": "logistics", "probability": 8, "affected_regions": ["Taiwan"],
+         "suggested_actions": ["Contact Taiwan suppliers to confirm backup generator capacity", "Source alternate inventory"]},
+        {"id": "scenario-2", "name": "European Port Strike",
+         "description": "Workers at major European ports announce a 2-week strike over wages.",
+         "signal": "Dockworkers across European ports initiate strike, delaying maritime freight",
+         "category": "logistics", "probability": 7, "affected_regions": ["Germany"],
+         "suggested_actions": ["Reroute inbound shipments to air freight", "Increase local safety stock"]},
+        {"id": "scenario-3", "name": "Indonesia Flood",
+         "description": "Heavy monsoon rains cause severe flooding in major industrial zones.",
+         "signal": "Severe flooding in Indonesia disrupts transit and warehouse operations",
+         "category": "weather", "probability": 6, "affected_regions": ["Indonesia"],
+         "suggested_actions": ["Audit warehouse inventory for water damage risk"]},
+        {"id": "scenario-4", "name": "Financial Distress Alert",
+         "description": "A key raw materials vendor is downgraded by credit agencies.",
+         "signal": "Major mining consortium downgraded to junk status amidst liquidity crisis",
+         "category": "financial", "probability": 5, "affected_regions": ["D.R. Congo"],
+         "suggested_actions": ["Accelerate onboarding of secondary supplier", "Audit outstanding invoices"]},
+        {"id": "scenario-5", "name": "Customs System Outage",
+         "description": "A ransomware attack takes down regional customs processing systems.",
+         "signal": "Cyberattack on regional customs authorities creates 4-day backlog",
+         "category": "geopolitical", "probability": 4, "affected_regions": ["China"],
+         "suggested_actions": ["Inform customers of impending delays", "Shift volume to unaffected regional ports"]},
     ]

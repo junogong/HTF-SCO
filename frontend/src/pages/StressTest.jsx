@@ -2,7 +2,12 @@ import { useState } from 'react';
 import api from '../api/client';
 import { Wind, Play, AlertTriangle, TrendingUp, Package, ChevronDown, ChevronRight, Zap, CheckCircle } from 'lucide-react';
 
-const PROB_COLOR = { high: '#ef4444', medium: '#f97316', low: '#eab308' };
+const getProbColor = (prob) => {
+    const p = Number(prob);
+    if (p >= 8) return '#ef4444';
+    if (p >= 5) return '#f97316';
+    return '#eab308';
+};
 const CAT_COLOR = { geopolitical: '#a855f7', weather: '#06b6d4', financial: '#22c55e', logistics: '#f97316', quality: '#eab308' };
 
 export default function StressTest({
@@ -136,8 +141,8 @@ export default function StressTest({
                                                     {s.category}
                                                 </span>
                                                 <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
-                                                    style={{ background: `${PROB_COLOR[s.probability] ?? '#6366f1'}20`, color: PROB_COLOR[s.probability] ?? '#6366f1' }}>
-                                                    {s.probability} probability
+                                                    style={{ background: `${getProbColor(s.probability)}20`, color: getProbColor(s.probability) }}>
+                                                    {s.probability}/10 probability
                                                 </span>
                                             </div>
                                         </div>
@@ -195,7 +200,7 @@ export default function StressTest({
                                                         strategy_id: `wind-tunnel-${Date.now()}-${i}`,
                                                         classification: {
                                                             category: s.category || 'stress-test',
-                                                            severity: s.probability === 'high' ? 'critical' : 'moderate',
+                                                            severity: Number(s.probability) >= 8 ? 'critical' : 'moderate',
                                                             region: s.affected_region || 'Global',
                                                         },
                                                         strategy: {
