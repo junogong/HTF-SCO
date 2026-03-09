@@ -13,10 +13,11 @@ import time
 import logging
 import json
 import os
+import random
 import concurrent.futures
 from modules.ingestion import ingest_signal
 from modules.agents import logistics_agent, finance_agent
-from modules.memory import retrieve_relevant_lessons, format_lessons_for_context, store_lesson
+from modules.memory import retrieve_relevant_lessons, reflect_on_outcomes, format_lessons_for_context, store_lesson
 from modules.health_scoring import calculate_health_score
 from modules.guardrails import fact_checker, HITL_REVENUE_THRESHOLD
 from modules.classifier import classifier as high_speed_classifier
@@ -36,7 +37,7 @@ Node Types:
   - Supplier:     {id, name, country, region, category, reliability_score, embedding}
   - SubSupplier:  {id, name, country, category, tier(2|3), risk_note, embedding}
   - Region:       {id, name, risk_level}
-  - Component:    {id, name, category, critical(bool), unit_cost}
+  - Component:    {id, name, category, critical(bool), unit_cost, stock_days}
   - Product:      {id, name, annual_revenue, components[]}
   - Signal:       {id, text, type, category, severity, region, embedding}
 
@@ -363,6 +364,32 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
     lessons_context = format_lessons_for_context(relevant_lessons)
     lesson_docs = [l["document"] for l in relevant_lessons]
 
+    # ── Simulated Live ERP Data ──────────────────────────────────────
+    erp_inventory_status = []
+    for comp in affected_components:
+        stock_days = comp.get("stock_days", random.randint(5, 45))
+        erp_inventory_status.append({
+            "component_id": comp.get("id"),
+            "name": comp.get("name"),
+            "current_stock_days": stock_days,
+            "safety_stock_threshold_days": 21,
+            "status": "CRITICAL" if stock_days < 14 else "WARNING" if stock_days < 28 else "HEALTHY",
+        })
+
+    # Get dynamic agent adjustments from past negative feedback
+    reflection = reflect_on_outcomes()
+    agent_adjustments = reflection.get("adjustments", [])
+    if agent_adjustments:
+        trace.append({
+            "step": 3.5,
+            "title": "Agent Prompt Calibration",
+            "description": f"Applied {len(agent_adjustments)} learned adjustment(s) from past negative feedback.",
+            "source": "Memory Reflection Engine",
+            "duration_ms": 0,
+            "status": "complete",
+            "icon": "zap",
+        })
+
     trace.append({
         "step": 3,
         "title": "Past Memory Retrieved",
@@ -386,8 +413,10 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
         "blast_radius": blast_radius,
         "total_annual_revenue": total_annual_revenue,
         "calibrated_revenue_at_risk": total_revenue_at_risk,
+        "erp_inventory_status": erp_inventory_status,
         "risk_appetite": risk_appetite,
         "past_lessons": lesson_docs,
+        "agent_adjustments": agent_adjustments,
     }
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -675,6 +704,29 @@ def analyze_disruption_streaming(signal_text, risk_appetite="balanced"):
     if relevant_lessons:
         memory_desc += f" — Top match: Lesson #{relevant_lessons[0]['document']['id']} ({relevant_lessons[0]['similarity']:.0%} relevance)"
 
+    # ── Simulated Live ERP Data ──────────────────────────────────────
+    erp_inventory_status = []
+    for comp in affected_components:
+        stock_days = comp.get("stock_days", random.randint(5, 45))
+        erp_inventory_status.append({
+            "component_id": comp.get("id"),
+            "name": comp.get("name"),
+            "current_stock_days": stock_days,
+            "safety_stock_threshold_days": 21,
+            "status": "CRITICAL" if stock_days < 14 else "WARNING" if stock_days < 28 else "HEALTHY",
+        })
+
+    # Get dynamic agent adjustments from past negative feedback
+    reflection = reflect_on_outcomes()
+    agent_adjustments = reflection.get("adjustments", [])
+    if agent_adjustments:
+        trace.append({
+            "step": 3.5, "title": "Agent Prompt Calibration",
+            "description": f"Applied {len(agent_adjustments)} learned adjustment(s) from past negative feedback.",
+            "source": "Memory Reflection Engine",
+            "duration_ms": 0, "status": "complete", "icon": "zap",
+        })
+
     trace.append({
         "step": 3, "title": "Past Memory Retrieved",
         "description": memory_desc,
@@ -695,7 +747,9 @@ def analyze_disruption_streaming(signal_text, risk_appetite="balanced"):
         "signal": signal_text, "classification": classification,
         "affected_suppliers": safe_suppliers, "blast_radius": blast_radius,
         "total_annual_revenue": total_annual_revenue, "calibrated_revenue_at_risk": total_revenue_at_risk,
+        "erp_inventory_status": erp_inventory_status,
         "risk_appetite": risk_appetite, "past_lessons": lesson_docs,
+        "agent_adjustments": agent_adjustments,
     }
     with concurrent.futures.ThreadPoolExecutor() as executor:
         logistics_future = executor.submit(logistics_agent.analyze, debate_context)

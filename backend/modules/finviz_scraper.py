@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def scrape_finviz_news():
     """
     Scrapes the top headlines from finviz.com/news.ashx.
-    Returns a list of headline strings or None on failure.
+    Returns a list of dicts: [{'text': headline, 'url': url}] or None on failure.
     """
     # Politeness delay to avoid rate limiting
     time.sleep(random.uniform(0.5, 1.5))
@@ -37,15 +37,16 @@ def scrape_finviz_news():
         news_links = soup.find_all("a", class_="nn-tab-link")
         
         for link in news_links:
-            href = link.get("href", "").lower()
+            href = link.get("href", "")
+            lower_href = href.lower()
             text = link.get_text(strip=True)
             
             # Identify Bloomberg headlines via the destination URL
-            if "bloomberg.com" in href:
-                if text and text not in headlines:
-                    headlines.append(text)
+            if "bloomberg.com" in lower_href:
+                if text and not any(h['url'] == href for h in headlines):
+                    headlines.append({'text': text, 'url': href})
                 
-        logger.info(f"Successfully scraped {len(headlines)} Bloomberg headlines from Finviz.")
+        logger.info(f"Successfully scraped {len(headlines)} Bloomberg articles from Finviz.")
         return headlines
         
     except Exception as e:
@@ -57,4 +58,4 @@ if __name__ == "__main__":
     news = scrape_finviz_news()
     print(f"Scraped {len(news)} headlines.")
     for h in news[:5]:
-        print(f"- {h}")
+        print(f"- {h['text']} ({h['url']})")
