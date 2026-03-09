@@ -148,6 +148,7 @@ class VertexAISimulator:
         finance = ctx.get("finance_analysis", {})
         risk_appetite = ctx.get("risk_appetite", "balanced")
         lessons = ctx.get("past_lessons", [])
+        erp_status = ctx.get("erp_inventory_status", [])
 
         revenue_at_risk = finance.get("revenue_at_risk", 1500000)
         logistics_conf = logistics.get("confidence", 75)
@@ -178,42 +179,65 @@ class VertexAISimulator:
                        f"{lesson_modifier} Recommended actions span logistics rerouting, financial hedging, "
                        f"and proactive supplier engagement.",
             "revenue_at_risk": revenue_at_risk,
-            "mitigation_actions": [
+            "mitigation_actions": self._build_dynamic_actions(erp_status),
+            "executive_escalation_required": revenue_at_risk > ctx.get("revenue_threshold", 500000),
+        }
+
+    def _build_dynamic_actions(self, erp_status):
+        actions = [
+            {
+                "id": f"act-email-{random.randint(100, 999)}",
+                "type": "supplier_email",
+                "title": "Supplier Contingency Notification",
+                "description": "Auto-generated email to affected suppliers requesting contingency plan activation.",
+                "priority": "HIGH",
+                "timeline": "Immediate",
+            }
+        ]
+
+        critical_components = [c for c in erp_status if c.get("status") == "CRITICAL"]
+        if critical_components:
+            names = ", ".join([c["name"] for c in critical_components[:2]])
+            actions.append({
+                "id": f"act-erp-{random.randint(100, 999)}",
+                "type": "erp_adjustment",
+                "title": f"Safety Stock Increase — {names}",
+                "description": f"Increase safety stock levels by 30% for {len(critical_components)} critical component(s) currently below threshold.",
+                "priority": "HIGH",
+                "timeline": "24 hours",
+                "target_skus": [c["component_id"] for c in critical_components]
+            })
+
+            actions.append({
+                "id": f"act-po-{random.randint(100, 999)}",
+                "type": "po_draft_update",
+                "title": f"Pre-emptive PO Draft — {names}",
+                "description": f"Draft purchase orders for 6-week buffer on critical components to secure capacity.",
+                "priority": "MEDIUM",
+                "timeline": "48 hours",
+                "target_skus": [c["component_id"] for c in critical_components]
+            })
+        else:
+            actions.extend([
                 {
-                    "id": "act-001",
-                    "type": "supplier_email",
-                    "title": "Supplier Contingency Notification",
-                    "description": "Auto-generated email to affected suppliers requesting contingency plan activation.",
-                    "priority": "HIGH",
-                    "timeline": "Immediate",
-                },
-                {
-                    "id": "act-002",
+                    "id": f"act-erp-{random.randint(100, 999)}",
                     "type": "erp_adjustment",
-                    "title": "Safety Stock Increase — Critical Components",
-                    "description": "Increase safety stock levels by 30% for affected components across 2 warehouses.",
+                    "title": "Safety Stock Increase — All Components",
+                    "description": "Increase safety stock levels by 15% across affected product lines to buffer delays.",
                     "priority": "HIGH",
                     "timeline": "24 hours",
                 },
                 {
-                    "id": "act-003",
-                    "type": "preemptive_stock_build",
+                    "id": f"act-po-{random.randint(100, 999)}",
+                    "type": "po_draft_update",
                     "title": "Pre-emptive Stock Build — Secondary Sources",
-                    "description": "Initiate purchase orders from backup suppliers to build 6-week buffer stock.",
+                    "description": "Initiate purchase orders from backup suppliers to build 4-week buffer stock.",
                     "priority": "MEDIUM",
                     "timeline": "48 hours",
-                },
-                {
-                    "id": "act-004",
-                    "type": "erp_adjustment",
-                    "title": "Production Schedule Rebalancing",
-                    "description": "Shift production priority to products with available component inventory.",
-                    "priority": "MEDIUM",
-                    "timeline": "72 hours",
-                },
-            ],
-            "executive_escalation_required": revenue_at_risk > ctx.get("revenue_threshold", 500000),
-        }
+                }
+            ])
+            
+        return actions
 
     def _classifier_response(self, text):
         from modules.classifier import classifier

@@ -174,9 +174,19 @@ def run_scenario(scenario: dict) -> dict:
     # Recommend pre-emptive stock builds for critical components
     preemptive_actions = _recommend_preemptive_actions(all_tier1, all_products, total_revenue)
 
+    # Calculate post-mitigation R@R
+    mitigated_revenue = total_revenue
+    if preemptive_actions:
+        # Assume preemptive actions (like stock builds or diversification) reduce exposure by ~65%
+        mitigated_revenue = round(total_revenue * 0.35)
+    
+    risk_reduction = total_revenue - mitigated_revenue
+
     return {
         **scenario,
         "revenue_at_risk": total_revenue,
+        "post_mitigation_revenue": mitigated_revenue,
+        "risk_reduction": risk_reduction,
         "tier1_suppliers_impacted": len(all_tier1),
         "affected_tier1": [{"id": s["id"], "name": s["name"], "country": s.get("country"),
                              "risk_path": s.get("risk_path", "")} for s in all_tier1],
@@ -234,6 +244,8 @@ def run_stress_test() -> dict:
             for c in critical_nodes
         ],
         "total_revenue_exposed": sum(r.get("revenue_at_risk", 0) for r in results),
+        "total_post_mitigation": sum(r.get("post_mitigation_revenue", 0) for r in results),
+        "total_risk_reduced": sum(r.get("risk_reduction", 0) for r in results),
         "highest_risk_scenario": results_sorted[0]["name"] if results_sorted else "N/A",
     }
 

@@ -58,10 +58,14 @@ export default function StressTest({
             {result && (
                 <div className="space-y-5">
                     {/* Summary KPIs */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-4 gap-4">
                         <div className="glass-card text-center py-5">
                             <p className="text-3xl font-black text-red-400">${(result.total_revenue_exposed / 1e6).toFixed(1)}M</p>
                             <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Total Revenue Exposed</p>
+                        </div>
+                        <div className="glass-card text-center py-5">
+                            <p className="text-3xl font-black text-emerald-400">${(result.total_risk_reduced / 1e6).toFixed(1)}M</p>
+                            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Mitigable Risk</p>
                         </div>
                         <div className="glass-card text-center py-5">
                             <p className="text-3xl font-black text-amber-400">{result.scenarios?.length ?? 0}</p>
@@ -138,8 +142,8 @@ export default function StressTest({
                                             </div>
                                         </div>
                                         <div className="text-right mr-2">
-                                            <p className="font-black text-red-400 text-sm">${((s.revenue_at_risk ?? 0) / 1e6).toFixed(1)}M</p>
-                                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{s.tier1_suppliers_impacted ?? 0} suppliers hit</p>
+                                            <p className="font-black text-red-400 text-sm">${((s.revenue_at_risk ?? 0) / 1e6).toFixed(1)}M <span className="text-[10px] text-red-400/70 font-normal">at risk</span></p>
+                                            <p className="text-xs text-emerald-400 font-bold">⭣ ${(s.post_mitigation_revenue / 1e6).toFixed(1)}M <span className="text-[10px] font-normal opacity-80">post-action</span></p>
                                         </div>
                                         {expanded === i ? <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} /> : <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />}
                                     </button>

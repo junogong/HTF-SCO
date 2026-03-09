@@ -17,6 +17,7 @@ def seed_all():
     _seed_products()
     _seed_edges()
     _seed_lessons()
+    _seed_feedback()
 
 
 def _seed_company():
@@ -203,18 +204,18 @@ def _seed_sub_suppliers():
 
 def _seed_components():
     components = [
-        {"id": "comp-mcu", "name": "ARM Cortex-M7 MCU", "category": "Processor", "critical": True, "unit_cost": 8.50},
-        {"id": "comp-wifi", "name": "WiFi 6E Module", "category": "Connectivity", "critical": True, "unit_cost": 4.20},
-        {"id": "comp-batt", "name": "Li-ion 3.7V 5000mAh Cell", "category": "Power", "critical": True, "unit_cost": 6.80},
-        {"id": "comp-oled", "name": "2.4\" OLED Display", "category": "Display", "critical": False, "unit_cost": 12.50},
-        {"id": "comp-pcb", "name": "6-Layer HDI PCB", "category": "Board", "critical": True, "unit_cost": 3.20},
-        {"id": "comp-imu", "name": "6-Axis IMU Sensor", "category": "Sensor", "critical": True, "unit_cost": 2.80},
-        {"id": "comp-pres", "name": "Barometric Pressure Sensor", "category": "Sensor", "critical": False, "unit_cost": 1.50},
-        {"id": "comp-cap", "name": "MLCC Capacitor Array", "category": "Passive", "critical": False, "unit_cost": 0.15},
-        {"id": "comp-encl", "name": "IP67 Aluminum Enclosure", "category": "Mechanical", "critical": False, "unit_cost": 14.00},
-        {"id": "comp-bms", "name": "Battery Management System", "category": "Power", "critical": True, "unit_cost": 5.50},
-        {"id": "comp-rf", "name": "Sub-GHz RF Transceiver", "category": "Connectivity", "critical": False, "unit_cost": 3.10},
-        {"id": "comp-therm", "name": "Thermal Management Module", "category": "Mechanical", "critical": False, "unit_cost": 7.20},
+        {"id": "comp-mcu", "name": "ARM Cortex-M7 MCU", "category": "Processor", "critical": True, "unit_cost": 8.50, "stock_days": 10},
+        {"id": "comp-wifi", "name": "WiFi 6E Module", "category": "Connectivity", "critical": True, "unit_cost": 4.20, "stock_days": 25},
+        {"id": "comp-batt", "name": "Li-ion 3.7V 5000mAh Cell", "category": "Power", "critical": True, "unit_cost": 6.80, "stock_days": 8},
+        {"id": "comp-oled", "name": "2.4\" OLED Display", "category": "Display", "critical": False, "unit_cost": 12.50, "stock_days": 35},
+        {"id": "comp-pcb", "name": "6-Layer HDI PCB", "category": "Board", "critical": True, "unit_cost": 3.20, "stock_days": 14},
+        {"id": "comp-imu", "name": "6-Axis IMU Sensor", "category": "Sensor", "critical": True, "unit_cost": 2.80, "stock_days": 32},
+        {"id": "comp-pres", "name": "Barometric Pressure Sensor", "category": "Sensor", "critical": False, "unit_cost": 1.50, "stock_days": 42},
+        {"id": "comp-cap", "name": "MLCC Capacitor Array", "category": "Passive", "critical": False, "unit_cost": 0.15, "stock_days": 60},
+        {"id": "comp-encl", "name": "IP67 Aluminum Enclosure", "category": "Mechanical", "critical": False, "unit_cost": 14.00, "stock_days": 28},
+        {"id": "comp-bms", "name": "Battery Management System", "category": "Power", "critical": True, "unit_cost": 5.50, "stock_days": 12},
+        {"id": "comp-rf", "name": "Sub-GHz RF Transceiver", "category": "Connectivity", "critical": False, "unit_cost": 3.10, "stock_days": 30},
+        {"id": "comp-therm", "name": "Thermal Management Module", "category": "Mechanical", "critical": False, "unit_cost": 7.20, "stock_days": 24},
     ]
 
     for c in components:
@@ -319,3 +320,36 @@ def _seed_lessons():
 
     for lesson in lessons:
         firestore_db.add_document("lessons", lesson, doc_id=lesson["strategy_id"])
+
+
+def _seed_feedback():
+    """Pre-seed past user feedback to trigger the continuous learning reflection engine."""
+    feedback_entries = [
+        {
+            "strategy_id": "lesson-003",
+            "rating": 2,
+            "comment": "Costs overran significantly. The expedited shipping was too expensive for this margin.",
+            "actual_outcome": "Mitigation succeeded but cost 35% more than budget."
+        },
+        {
+            "strategy_id": "lesson-004",
+            "rating": 2,
+            "comment": "Another instance where expedited logistics destroyed our product margin. We need to be more cost cautious.",
+            "actual_outcome": "Margin completely erased due to expensive mitigation."
+        },
+        {
+            "strategy_id": "lesson-005",
+            "rating": 2,
+            "comment": "Supplier communication was too slow, causing a massive delay in our response.",
+            "actual_outcome": "Late delivery due to slow reaction time."
+        },
+        {
+            "strategy_id": "lesson-006",
+            "rating": 2,
+            "comment": "We missed the project deadline by a week because we didn't reroute fast enough.",
+            "actual_outcome": "SLA penalty triggered due to time delay."
+        }
+    ]
+    
+    for fb in feedback_entries:
+        firestore_db.add_document("feedback", fb)
