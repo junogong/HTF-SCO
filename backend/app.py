@@ -43,10 +43,15 @@ def create_app():
     @app.route("/api/health", methods=["GET"])
     def health():
         return {"status": "ok", "service": "Supply Chain Resilience Agent"}
+
     # Seed demo data on startup (Local & Production)
-    print("🌱 Seeding demo supply chain data...")
-    seed_all()
-    print("✅ Seed complete: 8 suppliers, 7 sub-suppliers, 6 regions, 12 components, 4 products, 3 lessons")
+    print("🌱 Starting background thread to seed demo supply chain data...")
+    import threading
+    def background_seed():
+        seed_all()
+        print("✅ Seed complete: 8 suppliers, 7 sub-suppliers, 6 regions, 12 components, 4 products, 3 lessons")
+    
+    threading.Thread(target=background_seed, daemon=True).start()
 
     return app
 
