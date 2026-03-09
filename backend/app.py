@@ -43,6 +43,10 @@ def create_app():
     @app.route("/api/health", methods=["GET"])
     def health():
         return {"status": "ok", "service": "Supply Chain Resilience Agent"}
+    # Seed demo data on startup (Local & Production)
+    print("🌱 Seeding demo supply chain data...")
+    seed_all()
+    print("✅ Seed complete: 8 suppliers, 7 sub-suppliers, 6 regions, 12 components, 4 products, 3 lessons")
 
     return app
 
@@ -50,10 +54,5 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    # Seed demo data on startup (Local development only)
-    print("🌱 Seeding demo supply chain data...")
-    seed_all()
-    print("✅ Seed complete: 8 suppliers, 7 sub-suppliers, 6 regions, 12 components, 4 products, 3 lessons")
     print("🚀 Starting Intelligence Hub on http://localhost:5000")
-
     app.run(host="0.0.0.0", port=5000, debug=True)
