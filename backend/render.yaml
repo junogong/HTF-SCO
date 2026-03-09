@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: htf-sco-backend
+    env: python
+    region: ohio
+    plan: free # Can upgrade to starter for $7/mo
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/gcp-credentials.json
+      - key: GCP_PROJECT_ID
+        sync: false # Set this in Render dashboard
+      - key: GCP_REGION
+        sync: false
+      - key: FIRESTORE_DATABASE
+        sync: false
+      - key: USE_REAL_VERTEX
+        value: "true"
+      - key: USE_REAL_FIRESTORE
+        value: "true"
+      - key: USE_REAL_SPANNER
+        value: "false" # Must remain false unless Spanner instance is paid for

@@ -11,18 +11,65 @@ import SafetyDashboard from './pages/SafetyDashboard';
 import StressTest from './pages/StressTest';
 
 export default function App() {
-  const [hasLaunched, setHasLaunched] = useState(false);
+  const [hasLaunched, setHasLaunched] = useState(() => {
+    return localStorage.getItem('sco_hasLaunched') === 'true';
+  });
   const [activePage, setActivePage] = useState('dashboard');
-  const [disruptionHistory, setDisruptionHistory] = useState([]);
+
+  const [disruptionHistory, setDisruptionHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sco_disruptionHistory');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) { return []; }
+  });
+
   const [signals, setSignals] = useState([]);
   const [activeIndex, setActiveIndex] = useState(-1);
 
   const activeResult = activeIndex >= 0 ? disruptionHistory[activeIndex] : null;
-  const [dismissedActionIds, setDismissedActionIds] = useState(new Set());
+
+  const [dismissedActionIds, setDismissedActionIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sco_dismissedActionIds');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) { return new Set(); }
+  });
 
   // Wind Tunnel persisted state
-  const [stressTestResult, setStressTestResult] = useState(null);
-  const [acceptedScenarios, setAcceptedScenarios] = useState(new Set());
+  const [stressTestResult, setStressTestResult] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sco_stressTestResult');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) { return null; }
+  });
+
+  const [acceptedScenarios, setAcceptedScenarios] = useState(() => {
+    try {
+      const saved = localStorage.getItem('sco_acceptedScenarios');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) { return new Set(); }
+  });
+
+  // ── Sync to LocalStorage ──────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem('sco_hasLaunched', hasLaunched);
+  }, [hasLaunched]);
+
+  useEffect(() => {
+    localStorage.setItem('sco_disruptionHistory', JSON.stringify(disruptionHistory));
+  }, [disruptionHistory]);
+
+  useEffect(() => {
+    localStorage.setItem('sco_dismissedActionIds', JSON.stringify([...dismissedActionIds]));
+  }, [dismissedActionIds]);
+
+  useEffect(() => {
+    localStorage.setItem('sco_stressTestResult', JSON.stringify(stressTestResult));
+  }, [stressTestResult]);
+
+  useEffect(() => {
+    localStorage.setItem('sco_acceptedScenarios', JSON.stringify([...acceptedScenarios]));
+  }, [acceptedScenarios]);
 
   // ── Background Poller for Proactive Agent Workflows ─────────
   useEffect(() => {

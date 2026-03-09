@@ -1,8 +1,9 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from modules.finviz_scraper import scrape_finviz_news
 from modules.ingestion import ingest_signal
 from modules.classifier import classifier as high_speed_classifier
 from modules.orchestrator import analyze_disruption
+from services.firestore_simulator import firestore_db
 import logging
 import time
 import threading
@@ -31,15 +32,18 @@ def _jaccard_similarity(text1, text2):
         return 0.0
     return len(words1.intersection(words2)) / len(words1.union(words2))
 
-# ── In-memory store for scraped + classified signals ─────────────────
-_scraped_signals = []          # All classified headlines
-_auto_disruptions = []         # Full orchestrator results for high-severity signals
-_processed_headlines = set()   # Global exact-match tracking to avoid redundant analysis
-_processed_urls = set()        # Exact article URL deduplication
-_processed_embeddings = []     # Global semantic tracking (list of dicts: {'text': '', 'embedding': []})
+# ── In-memory store for currently processing signals ─────────────────
+# We still use these during the active scrape loop, but they are pushed 
+# to Firestore at the end of the run.
+_processed_headlines = set()   
+_processed_urls = set()        
+_processed_embeddings = []     
 
-# Severity threshold: signals at or above this run through the full orchestrator
+# Severe threshold: signals at or above this run through the full orchestrator
 AUTO_ANALYZE_THRESHOLD = 6
+CACHE_COLLECTION = "system_cache"
+CACHE_DOC_ID = "cron_news_cache"
+CACHE_TTL_SECONDS = 30 * 60  # 30 minutes
 
 
 def _run_async_analysis(text, classification):
@@ -50,11 +54,18 @@ def _run_async_analysis(text, classification):
         result["source"] = "finviz-auto"
         result["scraped_headline"] = text
         
-        _auto_disruptions.append(result)
-        # Keep only last 30 disruptions
-        if len(_auto_disruptions) > 30:
-            _auto_disruptions[:] = _auto_disruptions[-30:]
+        # Pull existing cache to append this disruption
+        cache = firestore_db.get_document(CACHE_COLLECTION, CACHE_DOC_ID) or {}
+        auto_disruptions = cache.get("auto_disruptions", [])
+        
+        auto_disruptions.append(result)
+        if len(auto_disruptions) > 30:
+            auto_disruptions = auto_disruptions[-30:]
             
+        firestore_db.update_document(CACHE_COLLECTION, CACHE_DOC_ID, {
+            "auto_disruptions": auto_disruptions
+        })
+        
         logger.info(f"   ✅ [Async] Analysis complete: ${result['strategy']['revenue_at_risk']:,} at risk")
     except Exception as e:
         logger.error(f"   ❌ [Async] Orchestrator failed for '{text[:40]}': {e}")
@@ -62,13 +73,29 @@ def _run_async_analysis(text, classification):
         # _processed_headlines.discard(text)
 
 
-@cron_bp.route('/scrape-finviz', methods=['POST'])
+@cron_bp.route('/scrape-finviz', methods=['POST', 'GET'])
 def cron_scrape_finviz():
     """
     Cron endpoint triggered by Scheduler.
-    Now offloads heavy analysis to background threads for instant UI response.
+    Checks TTL cache first to prevent redundant scrapes across serverless instances.
     """
-    logger.info("Cron triggered: /api/cron/scrape-finviz")
+    force_refresh = request.args.get('force', 'false').lower() == 'true'
+    
+    # 0. Check TTL Cache
+    cache = firestore_db.get_document(CACHE_COLLECTION, CACHE_DOC_ID)
+    current_time = time.time()
+    
+    if cache and not force_refresh:
+        last_scraped = cache.get("last_scraped_time", 0)
+        if (current_time - last_scraped) < CACHE_TTL_SECONDS:
+            logger.info("Cron: Finviz cache is still fresh. Skipping scrape.")
+            return jsonify({
+                "status": "success",
+                "cached": True,
+                "message": "Returned from cache to save API limits."
+            }), 200
+
+    logger.info("Cron triggered: /api/cron/scrape-finviz executing fresh scrape...")
     
     headlines = scrape_finviz_news()
     
@@ -181,12 +208,23 @@ def cron_scrape_finviz():
             logger.error(f"Error processing headline '{text[:40]}': {e}")
             continue
     
-    _scraped_signals.extend(classified_signals)
-    if len(_scraped_signals) > 100:
-        _scraped_signals[:] = _scraped_signals[-100:]
+    cache = firestore_db.get_document(CACHE_COLLECTION, CACHE_DOC_ID) or {}
+    scraped_signals = cache.get("scraped_signals", [])
+    
+    scraped_signals.extend(classified_signals)
+    if len(scraped_signals) > 100:
+        scraped_signals = scraped_signals[-100:]
+        
+    # Update cache
+    firestore_db.add_document(CACHE_COLLECTION, {
+        "last_scraped_time": current_time,
+        "scraped_signals": scraped_signals,
+        "auto_disruptions": cache.get("auto_disruptions", [])
+    }, doc_id=CACHE_DOC_ID)
     
     return jsonify({
         "status": "success",
+        "cached": False,
         "scraped_total": len(headlines),
         "processed": len(headlines_to_process),
         "auto_analyzed_started": threads_started,
@@ -196,17 +234,21 @@ def cron_scrape_finviz():
 
 @cron_bp.route('/scraped-signals', methods=['GET'])
 def get_scraped_signals():
-    """Return all recently scraped + classified signals for the frontend."""
+    """Return all recently scraped + classified signals from Firestore cache."""
+    cache = firestore_db.get_document(CACHE_COLLECTION, CACHE_DOC_ID) or {}
+    signals = cache.get("scraped_signals", [])
     return jsonify({
-        "signals": _scraped_signals[-50:],  # Last 50
-        "total": len(_scraped_signals),
+        "signals": signals[-50:],  # Last 50
+        "total": len(signals),
     })
 
 
 @cron_bp.route('/auto-disruptions', methods=['GET'])
 def get_auto_disruptions():
-    """Return auto-analyzed disruptions from scraped news (high-severity only)."""
+    """Return auto-analyzed disruptions from Firestore cache."""
+    cache = firestore_db.get_document(CACHE_COLLECTION, CACHE_DOC_ID) or {}
+    disruptions = cache.get("auto_disruptions", [])
     return jsonify({
-        "disruptions": _auto_disruptions[-10:],  # Last 10
-        "total": len(_auto_disruptions),
+        "disruptions": disruptions[-10:],  # Last 10
+        "total": len(disruptions),
     })
