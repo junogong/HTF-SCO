@@ -10,13 +10,16 @@ from services.vertex_simulator import vertex_ai
 VECTOR_MATCH_THRESHOLD = 0.75
 
 
-def ingest_signal(text, signal_type="news"):
+def ingest_signal(text, signal_type="news", pre_classified=None):
     """
     Ingest a raw signal: chunk text, generate embeddings, link to relevant suppliers.
     Returns the classified signal with metadata.
     """
-    # Step 1: Classify the signal
-    classification = vertex_ai.generate_response(text, persona="classifier")
+    # Step 1: Classify the signal (skip if pre_classified is provided)
+    if pre_classified:
+        classification = pre_classified
+    else:
+        classification = vertex_ai.generate_response(text, persona="classifier")
 
     # Step 2: Generate embedding for the full signal
     embedding = vertex_ai.generate_embedding(text)

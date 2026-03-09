@@ -116,7 +116,7 @@ def cron_scrape_finviz():
             "auto_analyzed_started": 0
         }), 200
         
-    headlines_to_process = headlines[:20]
+    headlines_to_process = headlines[:10]
     classified_signals = []
     threads_started = 0
     
@@ -194,7 +194,7 @@ def cron_scrape_finviz():
             # High-severity signals trigger background analysis
             if classification.get("severity", 0) >= AUTO_ANALYZE_THRESHOLD and classification.get("category") != "general":
                 # Ingest immediately so it shows up in "Recent Signals" instantly
-                ingest_signal(text, signal_type="news")
+                ingest_signal(text, signal_type="news", pre_classified=classification)
                 
                 thread = threading.Thread(target=_run_async_analysis, args=(text, classification))
                 thread.daemon = True
@@ -202,7 +202,7 @@ def cron_scrape_finviz():
                 threads_started += 1
             else:
                 # Still ingest for context
-                ingest_signal(text, signal_type="news")
+                ingest_signal(text, signal_type="news", pre_classified=classification)
 
         except Exception as e:
             logger.error(f"Error processing headline '{text[:40]}': {e}")
