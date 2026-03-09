@@ -1,6 +1,6 @@
 import {
     LayoutDashboard, GitBranch, AlertTriangle, CheckSquare,
-    Shield, ShieldCheck, Wind
+    ShieldCheck, Wind
 } from 'lucide-react';
 
 const navItems = [
@@ -23,24 +23,24 @@ export default function Sidebar({ activePage, onNavigate, pendingActionsCount })
         >
             {/* Logo */}
             <div className="flex items-center gap-3 px-6 py-7" style={{ borderBottom: '1px solid var(--border)' }}>
-                <div className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0"
                     style={{
-                        background: 'var(--accent-primary-10)',
-                        border: '1px solid var(--accent-primary-40)',
+                        background: 'transparent',
                         borderRadius: '10px',
+                        overflow: 'hidden'
                     }}>
-                    <Shield size={18} color="var(--accent-primary)" />
+                    <img src="/logo.png" alt="Supplytics Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
                     <h1 style={{
                         fontFamily: 'var(--font-display)',
-                        fontSize: '16px',
+                        fontSize: '18px',
                         fontWeight: 800,
                         color: 'var(--text-primary)',
                         letterSpacing: '-0.02em',
                         lineHeight: 1.2,
                     }}>
-                        SCR Agent
+                        Supplytics
                     </h1>
                     <p style={{
                         fontFamily: 'var(--font-sans)',

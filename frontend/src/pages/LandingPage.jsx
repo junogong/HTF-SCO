@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, ArrowRight, Activity, Globe, Cpu, CheckCircle } from 'lucide-react';
+import { ArrowRight, Activity, Globe, Cpu, CheckCircle } from 'lucide-react';
 
 export default function LandingPage({ onLaunch }) {
     const [isLaunching, setIsLaunching] = useState(false);
@@ -52,30 +52,30 @@ export default function LandingPage({ onLaunch }) {
             }}>
                 {/* Logo Icon */}
                 <div style={{
-                    width: '56px',
-                    height: '56px',
+                    width: '64px',
+                    height: '64px',
                     borderRadius: '14px',
-                    background: 'rgba(79, 195, 247, 0.1)',
-                    border: '1px solid rgba(79, 195, 247, 0.2)',
+                    background: 'transparent',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     margin: '0 auto 28px',
+                    overflow: 'hidden'
                 }}>
-                    <Shield size={26} color="#4FC3F7" />
+                    <img src="/logo.png" alt="Supplytics Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </div>
 
                 {/* Heading */}
                 <h1 style={{
                     fontFamily: "'Inter', sans-serif",
-                    fontSize: '26px',
+                    fontSize: '32px',
                     fontWeight: 800,
                     color: '#F1F1F3',
                     letterSpacing: '-0.03em',
                     lineHeight: 1.2,
                     marginBottom: '12px',
                 }}>
-                    SCR Agent
+                    Supplytics
                 </h1>
 
                 <p style={{
