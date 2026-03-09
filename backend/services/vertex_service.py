@@ -18,11 +18,34 @@ class VertexAIService:
     """Real Vertex AI client for Gemini reasoning and embeddings."""
 
     def __init__(self):
-        vertexai.init(project=GCP_PROJECT_ID, location=GCP_REGION)
-        self.model = GenerativeModel(GEMINI_MODEL)
-        self.embedding_model = TextEmbeddingModel.from_pretrained(EMBEDDING_MODEL)
-        logger.info(f"✅ Vertex AI initialized — project={GCP_PROJECT_ID}, region={GCP_REGION}")
-        logger.info(f"   Gemini model: {GEMINI_MODEL}, Embedding model: {EMBEDDING_MODEL}")
+        self._initialized = False
+        self._model = None
+        self._embedding_model = None
+
+    def _ensure_init(self):
+        if not self._initialized:
+            vertexai.init(project=GCP_PROJECT_ID, location=GCP_REGION)
+            # We don't load the actual heavy models here, we wait for usage
+            self._initialized = True
+            logger.info(f"✅ Vertex AI initialized (deferred model loading) — project={GCP_PROJECT_ID}")
+
+    @property
+    def model(self):
+        self._ensure_init()
+        if self._model is None:
+            from vertexai.generative_models import GenerativeModel
+            self._model = GenerativeModel(GEMINI_MODEL)
+            logger.info(f"⚡ Gemini model loaded: {GEMINI_MODEL}")
+        return self._model
+
+    @property
+    def embedding_model(self):
+        self._ensure_init()
+        if self._embedding_model is None:
+            from vertexai.language_models import TextEmbeddingModel
+            self._embedding_model = TextEmbeddingModel.from_pretrained(EMBEDDING_MODEL)
+            logger.info(f"⚡ Embedding model loaded: {EMBEDDING_MODEL}")
+        return self._embedding_model
 
     # ── Embeddings ────────────────────────────────────────────────────
 
