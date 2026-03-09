@@ -6,6 +6,7 @@ blast-radius engine, and ranks critical failure points proactively.
 
 import json
 import logging
+import concurrent.futures
 from services.vertex_simulator import vertex_ai
 from services.spanner_simulator import graph_db
 from modules.ingestion import ingest_signal
@@ -97,8 +98,18 @@ def run_scenario(scenario: dict) -> dict:
     """
     signal = scenario.get("signal", scenario.get("description", ""))
 
+    # If the model already gave us category/severity/regions/actions, 
+    # use them as pre-classification to skip extra LLM calls in ingestion.
+    pre_classified = {
+        "category": scenario.get("category", "general"),
+        "severity": scenario.get("severity", 5),
+        "affected_countries": scenario.get("affected_regions", []),
+        "reasoning": scenario.get("description", ""),
+        "keywords": scenario.get("suggested_actions", [])[:3]
+    }
+
     try:
-        ingestion = ingest_signal(signal, signal_type="stress_test")
+        ingestion = ingest_signal(signal, signal_type="stress_test", pre_classified=pre_classified)
     except Exception as e:
         logger.error(f"Ingestion failed for scenario {scenario.get('id')}: {e}")
         ingestion = {"affected_suppliers": [], "classification": {}}
@@ -216,13 +227,19 @@ def run_stress_test() -> dict:
     - Top 3 most critical failure points (nodes with highest Revenue-at-Risk)
     - Global pre-emptive recommendations
     """
-    scenarios = generate_scenarios(5)
+    scenarios = generate_scenarios(3)
     results = []
 
-    for scenario in scenarios:
-        logger.info(f"Running stress test scenario: {scenario.get('name')}")
-        result = run_scenario(scenario)
-        results.append(result)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_scenario = {executor.submit(run_scenario, s): s for s in scenarios}
+        for future in concurrent.futures.as_completed(future_to_scenario):
+            try:
+                results.append(future.result())
+            except Exception as e:
+                logger.error(f"Scenario execution failed: {e}")
+
+    if not results:
+        return {"error": "All simulation scenarios failed"}
 
     # Rank by revenue at risk
     results_sorted = sorted(results, key=lambda x: x.get("revenue_at_risk", 0), reverse=True)

@@ -250,8 +250,8 @@ def analyze_disruption(signal_text, risk_appetite="balanced"):
     # Use the high-speed Flash classifier first for rapid triage
     flash_classification = high_speed_classifier.classify(signal_text)
 
-    # Still run full ingestion for graph linking
-    ingestion_result = ingest_signal(signal_text, signal_type="disruption")
+    # Still run full ingestion for graph linking (pass flash_classification to avoid double-call)
+    ingestion_result = ingest_signal(signal_text, signal_type="disruption", pre_classified=flash_classification)
     classification = ingestion_result["classification"]
 
     # Merge Flash classifier's richer output into the classification
@@ -609,7 +609,7 @@ def analyze_disruption_streaming(signal_text, risk_appetite="balanced"):
 
     step_start = time.time()
     flash_classification = high_speed_classifier.classify(signal_text)
-    ingestion_result = ingest_signal(signal_text, signal_type="disruption")
+    ingestion_result = ingest_signal(signal_text, signal_type="disruption", pre_classified=flash_classification)
     classification = ingestion_result["classification"]
     classification["reasoning"] = flash_classification.get("reasoning", "")
     classification["classifier_used"] = flash_classification.get("classifier", "keyword-fallback")
