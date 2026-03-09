@@ -10,10 +10,33 @@ import threading
 cron_bp = Blueprint('cron', __name__)
 logger = logging.getLogger(__name__)
 
+import math
+import re
+
+def _cosine_similarity(a, b):
+    if not a or not b or len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+def _jaccard_similarity(text1, text2):
+    """Fallback text similarity for realistic local simulation."""
+    words1 = set(re.findall(r'\w+', text1.lower()))
+    words2 = set(re.findall(r'\w+', text2.lower()))
+    if not words1 or not words2:
+        return 0.0
+    return len(words1.intersection(words2)) / len(words1.union(words2))
+
 # ── In-memory store for scraped + classified signals ─────────────────
 _scraped_signals = []          # All classified headlines
 _auto_disruptions = []         # Full orchestrator results for high-severity signals
 _processed_headlines = set()   # Global exact-match tracking to avoid redundant analysis
+_processed_urls = set()        # Exact article URL deduplication
+_processed_embeddings = []     # Global semantic tracking (list of dicts: {'text': '', 'embedding': []})
 
 # Severity threshold: signals at or above this run through the full orchestrator
 AUTO_ANALYZE_THRESHOLD = 6
@@ -70,23 +93,66 @@ def cron_scrape_finviz():
     classified_signals = []
     threads_started = 0
     
-    for text in headlines_to_process:
+    for item in headlines_to_process:
+        text = item["text"]
+        url = item["url"]
         try:
-            # Global exact-match deduplication
+            # 1. Deduplicate by exact Article URL (The safest block against Finviz syndication / updates)
+            if url in _processed_urls:
+                continue
+            
+            # 2. Global exact-match deduplication
             if text in _processed_headlines:
                 continue
-            _processed_headlines.add(text)
+                
+            # 3. Semantic deduplication
+            from config import USE_REAL_VERTEX
+            is_semantic_duplicate = False
             
-            # Memory management for the seen set (keep last 500 headlines)
+            if USE_REAL_VERTEX:
+                from services.vertex_simulator import vertex_ai
+                new_embedding = vertex_ai.generate_embedding(text)
+                
+                for pe in _processed_embeddings:
+                    sim = _cosine_similarity(new_embedding, pe['embedding'])
+                    if sim > 0.65:
+                        is_semantic_duplicate = True
+                        logger.info(f"Skipping semantic duplicate: '{text[:40]}' matches '{pe['text'][:40]}' (sim: {sim:.2f})")
+                        break
+                        
+                if not is_semantic_duplicate:
+                    _processed_embeddings.append({'text': text, 'embedding': new_embedding})
+                    if len(_processed_embeddings) > 100:
+                        _processed_embeddings.pop(0)
+            else:
+                # Simulator fallback: Hash embeddings are zero-collision, so cosine sim fails. Use Jaccard Words.
+                for past_text in _processed_headlines:
+                    sim = _jaccard_similarity(text, past_text)
+                    if sim > 0.4: # Jaccard > 0.4 implies significant overlap in short news headlines
+                        is_semantic_duplicate = True
+                        logger.info(f"Skipping jaccard duplicate: '{text[:40]}' matches '{past_text[:40]}' (sim: {sim:.2f})")
+                        break
+
+            if is_semantic_duplicate:
+                _processed_headlines.add(text) # Add to exact match for faster rejection next time
+                _processed_urls.add(url)
+                continue
+
+            # Log clean, unique signals
+            _processed_headlines.add(text)
+            _processed_urls.add(url)
+            
+            # Memory management for exact text match
             if len(_processed_headlines) > 500:
-                # Poor man's LRU: just clear it or pop one
-                # For simplicity, we just keep it or use a list
-                pass
+                _processed_headlines.pop()
+            if len(_processed_urls) > 500:
+                _processed_urls.pop()
 
             classification = high_speed_classifier.classify(text)
             
             signal_entry = {
                 "text": text,
+                "url": url,
                 "category": classification.get("category", "general"),
                 "severity": classification.get("severity", 1),
                 "region": classification.get("region"),

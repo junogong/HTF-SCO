@@ -31,6 +31,7 @@ class LogisticsAgent:
                 "signal": context.get("signal", ""),
                 "risk_appetite": risk_appetite,
                 "past_lessons": context.get("past_lessons", []),
+                "agent_adjustments": context.get("agent_adjustments", []),
             }
         )
 
@@ -64,6 +65,7 @@ class FinanceAgent:
                 "signal": context.get("signal", ""),
                 "risk_appetite": risk_appetite,
                 "past_lessons": context.get("past_lessons", []),
+                "agent_adjustments": context.get("agent_adjustments", []),
             }
         )
 
