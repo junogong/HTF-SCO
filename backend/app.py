@@ -22,7 +22,9 @@ from data.seed import seed_all
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+    
+    # Allow all origins so Vercel can talk to Render without CORS blocks
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     # Register blueprints
     app.register_blueprint(disruption_bp)
