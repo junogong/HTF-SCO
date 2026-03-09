@@ -3,7 +3,7 @@ import { AlertTriangle, Send, Truck, DollarSign, ShieldAlert, Zap, Info, CheckCi
 import ReasoningTrace from '../components/ReasoningTrace';
 import HealthBadge from '../components/HealthBadge';
 import OverrideModal from '../components/OverrideModal';
-import api from '../api/client';
+import api, { API_BASE_URL } from '../api/client';
 
 const RISK_APPETITES = [
     { value: 'conservative', label: 'Conservative', desc: 'Prioritize cost savings', weight: '2.0× Cost / 0.5× Speed' },
@@ -46,7 +46,7 @@ export default function Disruption({ disruptionHistory = [], activeIndex = -1, s
         setActiveStep(null);
 
         try {
-            const response = await fetch('/api/disruption/stream', {
+            const response = await fetch(`${API_BASE_URL}disruption/stream`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ signal, risk_appetite: riskAppetite }),
